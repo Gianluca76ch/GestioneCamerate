@@ -1,154 +1,132 @@
+// backend/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const { sequelize, testConnection } = require('./config/database');
-const { windowsAuth } = require('./middleware/auth');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Middleware di sicurezza
 app.use(helmet());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minuti
-  max: 100 // max 100 richieste per IP
-});
-app.use(limiter);
+// CORS configuration
+// ============================================
+// CORS CONFIGURATION - Produzione
+// ============================================
+// Accetta richieste da qualsiasi origin sulla porta 85
+// (frontend può essere su IP o hostname)
 
-// CORS - Configurazione per rete locale
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://10.60.37.91:3000',  // IP del tuo PC
-];
-
-// Se definito in .env, aggiungi anche quello
-if (process.env.ALLOWED_ORIGIN) {
-  allowedOrigins.push(process.env.ALLOWED_ORIGIN);
-}
-
-const corsOptions = {
+app.use(cors({
   origin: function(origin, callback) {
-    // Permetti richieste senza origin (es: Postman, app mobile)
-    if (!origin) return callback(null, true);
-    
-    // Controlla se l'origin è nella lista permessi
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.warn(`⚠️ CORS blocked: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+    // In development, permetti tutto
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
     }
+    
+    // In produzione, permetti:
+    // - Richieste senza origin (server-side, Postman, curl)
+    // - Richieste dalla porta 85 (qualsiasi hostname/IP)
+    // - Localhost per test
+    
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Permetti qualsiasi origin sulla porta 85
+    if (origin.includes(':85') || origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    // Altrimenti nega
+    console.warn('❌ CORS blocked for origin:', origin);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  optionsSuccessStatus: 200
-};
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Authenticated-User']
+}));
 
-app.use(cors(corsOptions));
-console.log('✓ CORS configurato per:', allowedOrigins);
+// Gestione esplicita delle richieste OPTIONS (preflight)
+app.options('*', cors());
 
-// Body parsing
+// Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logger semplice
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
-// Health check (senza autenticazione)
+// ===== ROUTES =====
+
+// Routes pubbliche (senza autenticazione)
 app.get('/api/health', (req, res) => {
   res.json({ 
-    status: 'OK', 
+    success: true, 
+    message: 'Server is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// Applica Windows Authentication a tutte le route API
-app.use('/api', windowsAuth);
+// Routes autenticazione
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
 
-// Info utente autenticato
-app.get('/api/auth/user', (req, res) => {
-  res.json({
-    user: req.user,
-    message: 'Autenticato con successo'
-  });
-});
+// Routes Active Directory
+const adRoutes = require('./routes/activeDirectory');
+app.use('/api/ad', adRoutes);
 
-// Importa routes
-const categorieRoutes = require('./routes/categorie');
-const gradiRoutes = require('./routes/gradi');
+// Routes protette (con autenticazione)
+const { windowsAuth } = require('./middleware/auth');
+
 const camereRoutes = require('./routes/camere');
+app.use('/api/camere', windowsAuth, camereRoutes);
+
+const categorieRoutes = require('./routes/categorie');
+app.use('/api/categorie', windowsAuth, categorieRoutes);
+
 const alloggiatiRoutes = require('./routes/alloggiati');
+app.use('/api/alloggiati', windowsAuth, alloggiatiRoutes);
+
+const gradiRoutes = require('./routes/gradi');
+app.use('/api/gradi', windowsAuth, gradiRoutes);
+
 const assegnazioniRoutes = require('./routes/assegnazioni');
+app.use('/api/assegnazioni', windowsAuth, assegnazioniRoutes);
 
-// Usa routes
-app.use('/api/categorie', categorieRoutes);
-app.use('/api/gradi', gradiRoutes);
-app.use('/api/camere', camereRoutes);
-app.use('/api/alloggiati', alloggiatiRoutes);
-app.use('/api/assegnazioni', assegnazioniRoutes);
-
-// Route di test
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    message: 'API funzionante!',
-    user: req.user 
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint non trovato',
+    path: req.path
   });
 });
 
-// Gestione errori 404
-app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint non trovato' });
-});
-
-// Gestione errori globale
+// Error handler globale
 app.use((err, req, res, next) => {
-  console.error('Errore:', err);
+  console.error('Errore server:', err);
   res.status(err.status || 500).json({
+    success: false,
     error: err.message || 'Errore interno del server',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
 // Avvio server
-const startServer = async () => {
-  try {
-    // Test connessione database
-    await testConnection();
-    
-    // Sincronizza modelli (in sviluppo)
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: false });
-      console.log('✓ Modelli database sincronizzati');
-    }
-    
-    // Avvia server
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`\n${'='.repeat(50)}`);
-      console.log(`🚀 Server avviato su porta ${PORT}`);
-      console.log(`📝 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
-      console.log(`${'='.repeat(50)}\n`);
-    });
-  } catch (error) {
-    console.error('❌ Errore avvio server:', error);
-    process.exit(1);
-  }
-};
-
-startServer();
-
-// Gestione chiusura graceful
-process.on('SIGINT', async () => {
-  console.log('\n⏳ Chiusura server in corso...');
-  await sequelize.close();
-  console.log('✓ Connessioni database chiuse');
-  process.exit(0);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════╗
+║  🏢 Server Gestione Camerate                   ║
+║  📡 Porta: ${PORT}                              ║
+║  🌍 Ambiente: ${process.env.NODE_ENV || 'development'}           ║
+║  ✅ Server avviato con successo!               ║
+╚════════════════════════════════════════════════╝
+  `);
 });
+
+module.exports = app;

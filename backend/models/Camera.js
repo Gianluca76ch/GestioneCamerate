@@ -50,6 +50,18 @@ const Camera = sequelize.define('Camera', {
   note: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  agibile: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    comment: 'Indica se la camera è agibile (se NO non si possono assegnare militari)'
+  },
+  manutenzione: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'Indica se la camera è in manutenzione (solo informativo, nessun vincolo)'
   }
 }, {
   tableName: 'camere',
@@ -60,7 +72,8 @@ const Camera = sequelize.define('Camera', {
     { fields: ['numero_camera'] },
     { fields: ['edificio', 'piano'] },
     { fields: ['id_categoria'] },
-    { fields: ['genere'] }
+    { fields: ['genere'] },
+    { fields: ['agibile'] }
   ]
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Paper,
@@ -18,16 +18,18 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
-} from '@mui/material';
+  Divider,
+} from "@mui/material";
 import {
   Man as ManIcon,
   Woman as WomanIcon,
   People as PeopleIcon,
-  Hotel as HotelIcon
-} from '@mui/icons-material';
-import { getAllCamere } from '../services/camereService';
-import { getOccupazioneCamera } from '../services/assegnazioniService';
+  Hotel as HotelIcon,
+  Build as BuildIcon, // <-- AGGIUNGI QUESTA (icona manutenzione)
+  DoNotDisturb as DoNotDisturbIcon,
+} from "@mui/icons-material";
+import { getAllCamere } from "../services/camereService";
+import { getOccupazioneCamera } from "../services/assegnazioniService";
 
 const Dashboard = () => {
   const [camere, setCamere] = useState([]);
@@ -36,9 +38,9 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
 
   // Filtri
-  const [edificioSelezionato, setEdificioSelezionato] = useState('nuovo');
+  const [edificioSelezionato, setEdificioSelezionato] = useState("nuovo");
   const [pianoSelezionato, setPianoSelezionato] = useState(null);
-  const [alaSelezionata, setAlaSelezionata] = useState('tutte');
+  const [alaSelezionata, setAlaSelezionata] = useState("tutte");
 
   // Piani e ale disponibili
   const [pianiDisponibili, setPianiDisponibili] = useState([]);
@@ -55,7 +57,7 @@ const Dashboard = () => {
     totale: 0,
     libere: 0,
     parziali: 0,
-    complete: 0
+    complete: 0,
   });
 
   useEffect(() => {
@@ -73,18 +75,20 @@ const Dashboard = () => {
       const response = await getAllCamere();
       setCamere(response.data || []);
     } catch (err) {
-      console.error('Errore caricamento camere:', err);
-      setError('Errore nel caricamento delle camere');
+      console.error("Errore caricamento camere:", err);
+      setError("Errore nel caricamento delle camere");
     } finally {
       setLoading(false);
     }
   };
 
   const filtraCamere = () => {
-    let filtrate = camere.filter(c => c.edificio === edificioSelezionato);
+    let filtrate = camere.filter((c) => c.edificio === edificioSelezionato);
 
     // Estrai piani disponibili per l'edificio selezionato
-    const piani = [...new Set(filtrate.map(c => c.piano))].sort((a, b) => a - b);
+    const piani = [...new Set(filtrate.map((c) => c.piano))].sort(
+      (a, b) => a - b
+    );
     setPianiDisponibili(piani);
 
     // Se nessun piano selezionato, seleziona il primo
@@ -94,22 +98,22 @@ const Dashboard = () => {
 
     // Filtra per piano
     if (pianoSelezionato !== null) {
-      filtrate = filtrate.filter(c => c.piano === pianoSelezionato);
+      filtrate = filtrate.filter((c) => c.piano === pianoSelezionato);
     }
 
     // Estrai ale disponibili per piano selezionato
-    const ale = [...new Set(filtrate.map(c => c.ala).filter(Boolean))];
+    const ale = [...new Set(filtrate.map((c) => c.ala).filter(Boolean))];
     setAleDisponibili(ale);
 
     // Filtra per ala
-    if (alaSelezionata !== 'tutte') {
-      filtrate = filtrate.filter(c => c.ala === alaSelezionata);
+    if (alaSelezionata !== "tutte") {
+      filtrate = filtrate.filter((c) => c.ala === alaSelezionata);
     }
 
     // Ordina per numero camera
     filtrate.sort((a, b) => {
-      const numA = parseInt(a.numero_camera.replace(/\D/g, ''));
-      const numB = parseInt(b.numero_camera.replace(/\D/g, ''));
+      const numA = parseInt(a.numero_camera.replace(/\D/g, ""));
+      const numB = parseInt(b.numero_camera.replace(/\D/g, ""));
       return numA - numB;
     });
 
@@ -119,9 +123,9 @@ const Dashboard = () => {
 
   const calcolaStatistiche = (camere) => {
     const totale = camere.length;
-    const libere = camere.filter(c => c.stato === 'Libera').length;
-    const parziali = camere.filter(c => c.stato === 'Parziale').length;
-    const complete = camere.filter(c => c.stato === 'Completa').length;
+    const libere = camere.filter((c) => c.stato === "Libera").length;
+    const parziali = camere.filter((c) => c.stato === "Parziale").length;
+    const complete = camere.filter((c) => c.stato === "Completa").length;
 
     setStats({ totale, libere, parziali, complete });
   };
@@ -129,12 +133,12 @@ const Dashboard = () => {
   const handleEdificioChange = (edificio) => {
     setEdificioSelezionato(edificio);
     setPianoSelezionato(null);
-    setAlaSelezionata('tutte');
+    setAlaSelezionata("tutte");
   };
 
   const handlePianoChange = (piano) => {
     setPianoSelezionato(piano);
-    setAlaSelezionata('tutte');
+    setAlaSelezionata("tutte");
   };
 
   const handleCardClick = async (camera) => {
@@ -146,7 +150,7 @@ const Dashboard = () => {
       const response = await getOccupazioneCamera(camera.id);
       setDettaglioCamera(response.data);
     } catch (err) {
-      console.error('Errore caricamento dettaglio:', err);
+      console.error("Errore caricamento dettaglio:", err);
     } finally {
       setLoadingDettaglio(false);
     }
@@ -161,15 +165,20 @@ const Dashboard = () => {
   const getBordoColorByOccupazione = (camera) => {
     const occupati = camera.posti_occupati || 0;
     const totali = camera.nr_posti;
-    
-    if (occupati === 0) return '#4caf50'; // Verde - Libera
-    if (occupati === totali) return '#f44336'; // Rosso - Completa
-    return '#ff9800'; // Arancione - Parziale
+
+    if (occupati === 0) return "#4caf50"; // Verde - Libera
+    if (occupati === totali) return "#f44336"; // Rosso - Completa
+    return "#ff9800"; // Arancione - Parziale
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="400px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -182,7 +191,11 @@ const Dashboard = () => {
         Dashboard Camere
       </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       {/* Filtri */}
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -194,14 +207,18 @@ const Dashboard = () => {
             </Typography>
             <ButtonGroup fullWidth variant="outlined">
               <Button
-                variant={edificioSelezionato === 'nuovo' ? 'contained' : 'outlined'}
-                onClick={() => handleEdificioChange('nuovo')}
+                variant={
+                  edificioSelezionato === "nuovo" ? "contained" : "outlined"
+                }
+                onClick={() => handleEdificioChange("nuovo")}
               >
                 Nuovo
               </Button>
               <Button
-                variant={edificioSelezionato === 'vecchio' ? 'contained' : 'outlined'}
-                onClick={() => handleEdificioChange('vecchio')}
+                variant={
+                  edificioSelezionato === "vecchio" ? "contained" : "outlined"
+                }
+                onClick={() => handleEdificioChange("vecchio")}
               >
                 Vecchio
               </Button>
@@ -213,16 +230,22 @@ const Dashboard = () => {
             <Typography variant="subtitle2" gutterBottom>
               Piano
             </Typography>
-            <ButtonGroup fullWidth variant="outlined" sx={{ flexWrap: 'nowrap' }}>
+            <ButtonGroup
+              fullWidth
+              variant="outlined"
+              sx={{ flexWrap: "nowrap" }}
+            >
               {pianiDisponibili.map((piano) => (
                 <Button
                   key={piano}
-                  variant={pianoSelezionato === piano ? 'contained' : 'outlined'}
+                  variant={
+                    pianoSelezionato === piano ? "contained" : "outlined"
+                  }
                   onClick={() => handlePianoChange(piano)}
-                  sx={{ 
-                    whiteSpace: 'nowrap',
-                    minWidth: 'auto',
-                    px: 2
+                  sx={{
+                    whiteSpace: "nowrap",
+                    minWidth: "auto",
+                    px: 2,
                   }}
                 >
                   P{piano}
@@ -237,28 +260,38 @@ const Dashboard = () => {
               <Typography variant="subtitle2" gutterBottom>
                 Ala
               </Typography>
-              <ButtonGroup fullWidth variant="outlined" sx={{ flexWrap: 'nowrap' }}>
+              <ButtonGroup
+                fullWidth
+                variant="outlined"
+                sx={{ flexWrap: "nowrap" }}
+              >
                 <Button
-                  variant={alaSelezionata === 'tutte' ? 'contained' : 'outlined'}
-                  onClick={() => setAlaSelezionata('tutte')}
-                  sx={{ whiteSpace: 'nowrap', px: 2 }}
+                  variant={
+                    alaSelezionata === "tutte" ? "contained" : "outlined"
+                  }
+                  onClick={() => setAlaSelezionata("tutte")}
+                  sx={{ whiteSpace: "nowrap", px: 2 }}
                 >
                   Tutte
                 </Button>
-                {aleDisponibili.includes('levante') && (
+                {aleDisponibili.includes("levante") && (
                   <Button
-                    variant={alaSelezionata === 'levante' ? 'contained' : 'outlined'}
-                    onClick={() => setAlaSelezionata('levante')}
-                    sx={{ whiteSpace: 'nowrap', px: 2 }}
+                    variant={
+                      alaSelezionata === "levante" ? "contained" : "outlined"
+                    }
+                    onClick={() => setAlaSelezionata("levante")}
+                    sx={{ whiteSpace: "nowrap", px: 2 }}
                   >
                     Lev.
                   </Button>
                 )}
-                {aleDisponibili.includes('ponente') && (
+                {aleDisponibili.includes("ponente") && (
                   <Button
-                    variant={alaSelezionata === 'ponente' ? 'contained' : 'outlined'}
-                    onClick={() => setAlaSelezionata('ponente')}
-                    sx={{ whiteSpace: 'nowrap', px: 2 }}
+                    variant={
+                      alaSelezionata === "ponente" ? "contained" : "outlined"
+                    }
+                    onClick={() => setAlaSelezionata("ponente")}
+                    sx={{ whiteSpace: "nowrap", px: 2 }}
                   >
                     Pon.
                   </Button>
@@ -272,8 +305,8 @@ const Dashboard = () => {
       {/* Statistiche */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <HotelIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+          <Paper sx={{ p: 2, textAlign: "center" }}>
+            <HotelIcon sx={{ fontSize: 40, color: "primary.main" }} />
             <Typography variant="h4">{stats.totale}</Typography>
             <Typography variant="body2" color="textSecondary">
               Totale Camere
@@ -281,7 +314,7 @@ const Dashboard = () => {
           </Paper>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#e8f5e9' }}>
+          <Paper sx={{ p: 2, textAlign: "center", bgcolor: "#e8f5e9" }}>
             <Typography variant="h4" color="success.main">
               {stats.libere}
             </Typography>
@@ -291,7 +324,7 @@ const Dashboard = () => {
           </Paper>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#fff3e0' }}>
+          <Paper sx={{ p: 2, textAlign: "center", bgcolor: "#fff3e0" }}>
             <Typography variant="h4" color="warning.main">
               {stats.parziali}
             </Typography>
@@ -301,7 +334,7 @@ const Dashboard = () => {
           </Paper>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#ffebee' }}>
+          <Paper sx={{ p: 2, textAlign: "center", bgcolor: "#ffebee" }}>
             <Typography variant="h4" color="error.main">
               {stats.complete}
             </Typography>
@@ -325,27 +358,32 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={4} lg={2} key={camera.id}>
               <Card
                 sx={{
-                  cursor: 'pointer',
-                  transition: 'all 0.3s',
-                  bgcolor: '#fafafa',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
+                  cursor: "pointer",
+                  transition: "all 0.3s",
+                  bgcolor: "#fafafa",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
                     boxShadow: 4,
-                    bgcolor: '#f5f5f5'
+                    bgcolor: "#f5f5f5",
                   },
-                  borderLeft: `6px solid ${getBordoColorByOccupazione(camera)}`
+                  borderLeft: `6px solid ${getBordoColorByOccupazione(camera)}`,
                 }}
                 onClick={() => handleCardClick(camera)}
               >
                 <CardContent>
                   {/* Numero Camera */}
-                  <Typography variant="h5" gutterBottom fontWeight="bold" color="text.primary">
+                  <Typography
+                    variant="h5"
+                    gutterBottom
+                    fontWeight="bold"
+                    color="text.primary"
+                  >
                     {camera.numero_camera}
                   </Typography>
 
                   {/* Categoria */}
                   <Chip
-                    label={camera.categoria?.descrizione || 'N/A'}
+                    label={camera.categoria?.descrizione || "N/A"}
                     size="small"
                     variant="outlined"
                     sx={{ mb: 1 }}
@@ -353,13 +391,13 @@ const Dashboard = () => {
 
                   {/* Genere */}
                   <Box display="flex" alignItems="center" gap={1} mb={1}>
-                    {camera.genere === 'maschile' ? (
+                    {camera.genere === "maschile" ? (
                       <ManIcon color="primary" fontSize="small" />
                     ) : (
                       <WomanIcon color="secondary" fontSize="small" />
                     )}
                     <Typography variant="body2" color="text.secondary">
-                      {camera.genere === 'maschile' ? 'Maschile' : 'Femminile'}
+                      {camera.genere === "maschile" ? "Maschile" : "Femminile"}
                     </Typography>
                   </Box>
 
@@ -370,6 +408,26 @@ const Dashboard = () => {
                       {camera.posti_occupati || 0}/{camera.nr_posti} posti
                     </Typography>
                   </Box>
+                  <Box display="flex" alignItems="center" gap={1} mt={1}>
+                    {camera.agibile === false && (
+                      <Chip
+                        icon={<DoNotDisturbIcon />}
+                        label="Non Agibile"
+                        size="small"
+                        color="error"
+                        variant="filled"
+                      />
+                    )}
+                    {camera.manutenzione === true && (
+                      <Chip
+                        icon={<BuildIcon />}
+                        label="Manutenzione"
+                        size="small"
+                        color="warning"
+                        variant="filled"
+                      />
+                    )}
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
@@ -378,7 +436,12 @@ const Dashboard = () => {
       </Grid>
 
       {/* Modal Dettaglio Camera */}
-      <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openModal}
+        onClose={handleCloseModal}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
           {cameraSelezionata && (
             <>
@@ -405,7 +468,9 @@ const Dashboard = () => {
                   <Typography variant="body2" color="textSecondary">
                     Totale Posti
                   </Typography>
-                  <Typography variant="h5">{dettaglioCamera.posti_totali}</Typography>
+                  <Typography variant="h5">
+                    {dettaglioCamera.posti_totali}
+                  </Typography>
                 </Grid>
                 <Grid item xs={4}>
                   <Typography variant="body2" color="textSecondary">

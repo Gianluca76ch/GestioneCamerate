@@ -97,6 +97,9 @@ app.use('/api/gradi', windowsAuth, gradiRoutes);
 const assegnazioniRoutes = require('./routes/assegnazioni');
 app.use('/api/assegnazioni', windowsAuth, assegnazioniRoutes);
 
+const storicoAssegnazioniRoutes = require('./routes/storicoAssegnazioniRoutes');
+app.use('/api/storico-assegnazioni', storicoAssegnazioniRoutes);
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Paper,
@@ -20,22 +20,24 @@ import {
   Grid,
   Alert,
   CircularProgress,
-  Chip
-} from '@mui/material';
+  Chip,
+} from "@mui/material";
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   SwapHoriz as SwapIcon,
-  Refresh as RefreshIcon
-} from '@mui/icons-material';
+  Refresh as RefreshIcon,
+} from "@mui/icons-material";
 import {
   getAllAssegnazioni,
   createAssegnazione,
   deleteAssegnazione,
-  spostaAlloggiato
-} from '../services/assegnazioniService';
-import { getAllCamere } from '../services/camereService';
-import { getAllAlloggiati } from '../services/alloggiatiService';
+  spostaAlloggiato,
+} from "../services/assegnazioniService";
+import { getAllCamere } from "../services/camereService";
+import { getAllAlloggiati } from "../services/alloggiatiService";
+import { DialogEliminazioneCamera } from "../components/StoricoAssegnazioniComponents";
+import storicoAssegnazioniService from "../services/storicoAssegnazioniService";
 
 const GestioneAssegnazioni = () => {
   const [assegnazioni, setAssegnazioni] = useState([]);
@@ -48,17 +50,22 @@ const GestioneAssegnazioni = () => {
   const [currentAssegnazione, setCurrentAssegnazione] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [dialogEliminazioneOpen, setDialogEliminazioneOpen] = useState(false);
+  const [militareSelezionato, setMilitareSelezionato] = useState(null);
+  const [cameraSelezionata, setCameraSelezionata] = useState(null);
+  const [assegnazioneIdDaEliminare, setAssegnazioneIdDaEliminare] =
+    useState(null);
 
   const [formData, setFormData] = useState({
-    matricola_alloggiato: '',
-    id_camera: '',
-    note: ''
+    matricola_alloggiato: "",
+    id_camera: "",
+    note: "",
   });
 
   const [spostaData, setSpostaData] = useState({
-    matricola_alloggiato: '',
-    id_camera_destinazione: '',
-    note: ''
+    matricola_alloggiato: "",
+    id_camera_destinazione: "",
+    note: "",
   });
 
   useEffect(() => {
@@ -73,7 +80,7 @@ const GestioneAssegnazioni = () => {
       const [assegnazioniRes, camereRes, alloggiatiRes] = await Promise.all([
         getAllAssegnazioni({ attive: true }),
         getAllCamere(),
-        getAllAlloggiati({ senza_camera: true })
+        getAllAlloggiati({ senza_camera: true }),
       ]);
 
       setAssegnazioni(assegnazioniRes.data || []);
@@ -82,13 +89,12 @@ const GestioneAssegnazioni = () => {
 
       // Filtra camere disponibili
       const disponibili = (camereRes.data || []).filter(
-        c => c.posti_occupati < c.nr_posti
+        (c) => c.posti_occupati < c.nr_posti
       );
       setCamereDisponibili(disponibili);
-
     } catch (err) {
-      console.error('Errore caricamento dati:', err);
-      setError('Errore nel caricamento dei dati');
+      console.error("Errore caricamento dati:", err);
+      setError("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
     }
@@ -96,9 +102,9 @@ const GestioneAssegnazioni = () => {
 
   const handleOpenDialog = () => {
     setFormData({
-      matricola_alloggiato: '',
-      id_camera: '',
-      note: ''
+      matricola_alloggiato: "",
+      id_camera: "",
+      note: "",
     });
     setOpenDialog(true);
   };
@@ -113,8 +119,8 @@ const GestioneAssegnazioni = () => {
     setCurrentAssegnazione(assegnazione);
     setSpostaData({
       matricola_alloggiato: assegnazione.alloggiato.matricola,
-      id_camera_destinazione: '',
-      note: ''
+      id_camera_destinazione: "",
+      note: "",
     });
     setOpenSpostaDialog(true);
   };
@@ -128,17 +134,17 @@ const GestioneAssegnazioni = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSpostaChange = (e) => {
     const { name, value } = e.target;
-    setSpostaData(prev => ({
+    setSpostaData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -149,15 +155,15 @@ const GestioneAssegnazioni = () => {
 
     try {
       await createAssegnazione(formData);
-      setSuccess('Alloggiato assegnato con successo!');
+      setSuccess("Alloggiato assegnato con successo!");
 
       setTimeout(() => {
         handleCloseDialog();
         loadData();
       }, 1500);
     } catch (err) {
-      console.error('Errore creazione assegnazione:', err);
-      setError(err.response?.data?.error || 'Errore nell\'assegnazione');
+      console.error("Errore creazione assegnazione:", err);
+      setError(err.response?.data?.error || "Errore nell'assegnazione");
     }
   };
 
@@ -168,38 +174,87 @@ const GestioneAssegnazioni = () => {
 
     try {
       await spostaAlloggiato(spostaData);
-      setSuccess('Alloggiato spostato con successo!');
+      setSuccess("Alloggiato spostato con successo!");
 
       setTimeout(() => {
         handleCloseSpostaDialog();
         loadData();
       }, 1500);
     } catch (err) {
-      console.error('Errore spostamento:', err);
-      setError(err.response?.data?.error || 'Errore nello spostamento');
+      console.error("Errore spostamento:", err);
+      setError(err.response?.data?.error || "Errore nello spostamento");
     }
   };
 
-  const handleDelete = async (id, cognome, nome, numeroCamera) => {
-    if (!window.confirm(`Rimuovere ${cognome} ${nome} dalla camera ${numeroCamera}?`)) {
-      return;
-    }
+  const handleDelete = (assegnazione) => {
+    // Prepara i dati del militare e della camera
+    const militare = {
+      matricola: assegnazione.alloggiato.matricola,
+      grado: assegnazione.alloggiato.grado?.descrizione || "N/A",
+      cognome: assegnazione.alloggiato.cognome,
+      nome: assegnazione.alloggiato.nome,
+    };
 
+    const camera = {
+      numero_camera: assegnazione.camera.numero_camera,
+      edificio: assegnazione.camera.edificio,
+    };
+
+    // Imposta gli state e apri il dialogo
+    setMilitareSelezionato(militare);
+    setCameraSelezionata(camera);
+    setAssegnazioneIdDaEliminare(assegnazione.id);
+    setDialogEliminazioneOpen(true);
+  };
+
+  const handleConfirmEliminazione = async ({ dataUscita, note }) => {
     try {
-      await deleteAssegnazione(id);
-      setSuccess('Alloggiato rimosso dalla camera con successo!');
-      loadData();
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      console.error('Errore rimozione:', err);
-      setError(err.response?.data?.error || 'Errore nella rimozione');
-      setTimeout(() => setError(null), 5000);
+      setError(null);
+
+      // Ottieni lo username dell'utente corrente
+      // Se hai un AuthContext usa: const { currentUser } = useAuth();
+      // const username = currentUser?.username || 'admin';
+      const username = "admin"; // Modifica questo con il vero username
+
+      // Chiama il service per spostare in storico
+      const response = await storicoAssegnazioniService.spostaInStorico(
+        assegnazioneIdDaEliminare,
+        dataUscita,
+        note,
+        username
+      );
+
+      if (response.data.success) {
+        setSuccess("Militare rimosso dalla camera e spostato nello storico!");
+
+        // Ricarica i dati
+        loadData();
+
+        // Chiudi il dialogo dopo un breve delay
+        setTimeout(() => {
+          setDialogEliminazioneOpen(false);
+          setSuccess(null);
+        }, 2000);
+      } else {
+        setError(response.data.error || "Errore nella rimozione");
+      }
+    } catch (error) {
+      console.error("Errore nell'eliminazione:", error);
+      setError(
+        error.response?.data?.error ||
+          "Errore nella rimozione del militare dalla camera"
+      );
     }
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="400px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -207,7 +262,12 @@ const GestioneAssegnazioni = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
         <Typography variant="h4">Gestione Assegnazioni</Typography>
         <Box>
           <IconButton onClick={loadData} sx={{ mr: 1 }}>
@@ -217,15 +277,30 @@ const GestioneAssegnazioni = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleOpenDialog}
-            disabled={alloggiatiSenzaCamera.length === 0 || camereDisponibili.length === 0}
+            disabled={
+              alloggiatiSenzaCamera.length === 0 ||
+              camereDisponibili.length === 0
+            }
           >
             Nuova Assegnazione
           </Button>
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          onClose={() => setSuccess(null)}
+        >
+          {success}
+        </Alert>
+      )}
 
       {alloggiatiSenzaCamera.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -243,14 +318,30 @@ const GestioneAssegnazioni = () => {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell><strong>Matricola</strong></TableCell>
-              <TableCell><strong>Cognome Nome</strong></TableCell>
-              <TableCell><strong>Grado</strong></TableCell>
-              <TableCell><strong>Camera</strong></TableCell>
-              <TableCell><strong>Edificio</strong></TableCell>
-              <TableCell><strong>Piano</strong></TableCell>
-              <TableCell><strong>Data Assegnazione</strong></TableCell>
-              <TableCell><strong>Azioni</strong></TableCell>
+              <TableCell>
+                <strong>Matricola</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Cognome Nome</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Grado</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Camera</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Edificio</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Piano</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Data Assegnazione</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Azioni</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -267,20 +358,25 @@ const GestioneAssegnazioni = () => {
                 <TableRow key={assegnazione.id} hover>
                   <TableCell>{assegnazione.alloggiato.matricola}</TableCell>
                   <TableCell>
-                    {assegnazione.alloggiato.cognome} {assegnazione.alloggiato.nome}
+                    {assegnazione.alloggiato.cognome}{" "}
+                    {assegnazione.alloggiato.nome}
                   </TableCell>
-                  <TableCell>{assegnazione.alloggiato.grado?.descrizione}</TableCell>
                   <TableCell>
-                    <Chip 
-                      label={assegnazione.camera.numero_camera} 
-                      color="primary" 
-                      size="small" 
+                    {assegnazione.alloggiato.grado?.descrizione}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={assegnazione.camera.numero_camera}
+                      color="primary"
+                      size="small"
                     />
                   </TableCell>
                   <TableCell>{assegnazione.camera.edificio}</TableCell>
                   <TableCell>{assegnazione.camera.piano}</TableCell>
                   <TableCell>
-                    {new Date(assegnazione.data_assegnazione).toLocaleDateString('it-IT')}
+                    {new Date(
+                      assegnazione.data_assegnazione
+                    ).toLocaleDateString("it-IT")}
                   </TableCell>
                   <TableCell>
                     <IconButton
@@ -294,13 +390,8 @@ const GestioneAssegnazioni = () => {
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => handleDelete(
-                        assegnazione.id,
-                        assegnazione.alloggiato.cognome,
-                        assegnazione.alloggiato.nome,
-                        assegnazione.camera.numero_camera
-                      )}
-                      title="Rimuovi da camera"
+                      onClick={() => handleDelete(assegnazione)}
+                      title="Rimuovi dalla camera"
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -313,12 +404,25 @@ const GestioneAssegnazioni = () => {
       </TableContainer>
 
       {/* Dialog Nuova Assegnazione */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+      >
         <form onSubmit={handleSubmit}>
           <DialogTitle>Nuova Assegnazione</DialogTitle>
           <DialogContent>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {success}
+              </Alert>
+            )}
 
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12}>
@@ -334,16 +438,20 @@ const GestioneAssegnazioni = () => {
                     MenuProps: {
                       PaperProps: {
                         style: {
-                          maxHeight: 400
-                        }
-                      }
-                    }
+                          maxHeight: 400,
+                        },
+                      },
+                    },
                   }}
                 >
                   <MenuItem value="">Seleziona alloggiato</MenuItem>
                   {alloggiatiSenzaCamera.map((alloggiato) => (
-                    <MenuItem key={alloggiato.matricola} value={alloggiato.matricola}>
-                      {alloggiato.matricola} - {alloggiato.cognome} {alloggiato.nome} ({alloggiato.grado?.descrizione})
+                    <MenuItem
+                      key={alloggiato.matricola}
+                      value={alloggiato.matricola}
+                    >
+                      {alloggiato.matricola} - {alloggiato.cognome}{" "}
+                      {alloggiato.nome} ({alloggiato.grado?.descrizione})
                     </MenuItem>
                   ))}
                 </TextField>
@@ -362,17 +470,18 @@ const GestioneAssegnazioni = () => {
                     MenuProps: {
                       PaperProps: {
                         style: {
-                          maxHeight: 400
-                        }
-                      }
-                    }
+                          maxHeight: 400,
+                        },
+                      },
+                    },
                   }}
                 >
                   <MenuItem value="">Seleziona camera</MenuItem>
                   {camereDisponibili.map((camera) => (
                     <MenuItem key={camera.id} value={camera.id}>
-                      {camera.numero_camera} - {camera.edificio} (Piano {camera.piano}) - 
-                      Posti: {camera.posti_occupati || 0}/{camera.nr_posti}
+                      {camera.numero_camera} - {camera.edificio} (Piano{" "}
+                      {camera.piano}) - Posti: {camera.posti_occupati || 0}/
+                      {camera.nr_posti}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -401,18 +510,36 @@ const GestioneAssegnazioni = () => {
       </Dialog>
 
       {/* Dialog Sposta Alloggiato */}
-      <Dialog open={openSpostaDialog} onClose={handleCloseSpostaDialog} maxWidth="md" fullWidth>
+      <Dialog
+        open={openSpostaDialog}
+        onClose={handleCloseSpostaDialog}
+        maxWidth="md"
+        fullWidth
+      >
         <form onSubmit={handleSposta}>
           <DialogTitle>Sposta Alloggiato</DialogTitle>
           <DialogContent>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {success}
+              </Alert>
+            )}
 
             {currentAssegnazione && (
               <Alert severity="info" sx={{ mb: 2 }}>
-                Stai spostando: <strong>{currentAssegnazione.alloggiato.cognome} {currentAssegnazione.alloggiato.nome}</strong>
+                Stai spostando:{" "}
+                <strong>
+                  {currentAssegnazione.alloggiato.cognome}{" "}
+                  {currentAssegnazione.alloggiato.nome}
+                </strong>
                 <br />
-                Camera attuale: <strong>{currentAssegnazione.camera.numero_camera}</strong>
+                Camera attuale:{" "}
+                <strong>{currentAssegnazione.camera.numero_camera}</strong>
               </Alert>
             )}
 
@@ -430,19 +557,20 @@ const GestioneAssegnazioni = () => {
                     MenuProps: {
                       PaperProps: {
                         style: {
-                          maxHeight: 400
-                        }
-                      }
-                    }
+                          maxHeight: 400,
+                        },
+                      },
+                    },
                   }}
                 >
                   <MenuItem value="">Seleziona camera</MenuItem>
                   {camereDisponibili
-                    .filter(c => c.id !== currentAssegnazione?.camera.id)
+                    .filter((c) => c.id !== currentAssegnazione?.camera.id)
                     .map((camera) => (
                       <MenuItem key={camera.id} value={camera.id}>
-                        {camera.numero_camera} - {camera.edificio} (Piano {camera.piano}) - 
-                        Posti: {camera.posti_occupati || 0}/{camera.nr_posti}
+                        {camera.numero_camera} - {camera.edificio} (Piano{" "}
+                        {camera.piano}) - Posti: {camera.posti_occupati || 0}/
+                        {camera.nr_posti}
                       </MenuItem>
                     ))}
                 </TextField>
@@ -469,6 +597,13 @@ const GestioneAssegnazioni = () => {
           </DialogActions>
         </form>
       </Dialog>
+      <DialogEliminazioneCamera
+        open={dialogEliminazioneOpen}
+        onClose={() => setDialogEliminazioneOpen(false)}
+        onConfirm={handleConfirmEliminazione}
+        militare={militareSelezionato}
+        camera={cameraSelezionata}
+      />
     </Box>
   );
 };

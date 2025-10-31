@@ -4,6 +4,7 @@ const Grado = require('./Grado');
 const Camera = require('./Camera');
 const Alloggiato = require('./Alloggiato');
 const Assegnazione = require('./Assegnazione');
+const StoricoAssegnazione = require('./StoricoAssegnazione');
 
 // =====================================================
 // DEFINIZIONE RELAZIONI
@@ -60,6 +61,11 @@ Assegnazione.belongsTo(Camera, {
 });
 
 // =====================================================
+// NOTA: StoricoAssegnazione non ha relazioni FK
+// perché conserva dati storici denormalizzati
+// =====================================================
+
+// =====================================================
 // ESPORTAZIONE
 // =====================================================
 
@@ -69,5 +75,6 @@ module.exports = {
   Grado,
   Camera,
   Alloggiato,
-  Assegnazione
+  Assegnazione,
+  StoricoAssegnazione
 };

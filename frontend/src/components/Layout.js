@@ -26,6 +26,7 @@ import {
   Assignment as AssignmentIcon,
   Dashboard as DashboardIcon,
   ExitToApp as LogoutIcon,
+  History as HistoryIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
 
@@ -54,6 +55,7 @@ const Layout = ({ children }) => {
     { text: "Gestione Camere", icon: <HotelIcon />, path: "/camere" },
     { text: "Gestione Alloggiati", icon: <PeopleIcon />, path: "/alloggiati" },
     { text: "Assegnazioni", icon: <AssignmentIcon />, path: "/assegnazioni" },
+    { text: "Storico", icon: <HistoryIcon />, path: "/storico" },
   ];
 
   const drawerContent = (

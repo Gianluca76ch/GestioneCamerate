@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import GestioneCamere from './pages/GestioneCamere';
 import GestioneAlloggiati from './pages/GestioneAlloggiati';
 import GestioneAssegnazioni from './pages/GestioneAssegnazioni';
+import StoricoAssegnazioniPage from './pages/StoricoAssegnazioniPage';
 
 const theme = createTheme({
   palette: {
@@ -56,6 +57,14 @@ function App() {
               element={
                 <Layout>
                   <GestioneAssegnazioni />
+                </Layout>
+              }
+            />
+            <Route
+              path="/Storico"
+              element={
+                <Layout>
+                  <StoricoAssegnazioniPage />
                 </Layout>
               }
             />

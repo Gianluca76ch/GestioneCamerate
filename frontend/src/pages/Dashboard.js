@@ -488,6 +488,14 @@ const Dashboard = () => {
                     {dettaglioCamera.posti_liberi}
                   </Typography>
                 </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="textSecondary">
+                    Nota
+                  </Typography>
+                  <Typography variant="h7" color="error.main">
+                    {dettaglioCamera.camera.note}
+                  </Typography>
+                </Grid>
               </Grid>
 
               <Divider sx={{ my: 2 }} />

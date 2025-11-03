@@ -21,17 +21,20 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  TableSortLabel,
+  Tooltip
 } from "@mui/material";
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   SwapHoriz as SwapIcon,
   Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon
 } from "@mui/icons-material";
 import {
   getAllAssegnazioni,
   createAssegnazione,
-  deleteAssegnazione,
   spostaAlloggiato,
 } from "../services/assegnazioniService";
 import { getAllCamere } from "../services/camereService";
@@ -41,6 +44,7 @@ import storicoAssegnazioniService from "../services/storicoAssegnazioniService";
 
 const GestioneAssegnazioni = () => {
   const [assegnazioni, setAssegnazioni] = useState([]);
+  const [assegnazioniFiltrate, setAssegnazioniFiltrate] = useState([]);
   const [camere, setCamere] = useState([]);
   const [camereDisponibili, setCamereDisponibili] = useState([]);
   const [alloggiatiSenzaCamera, setAlloggiatiSenzaCamera] = useState([]);
@@ -53,8 +57,18 @@ const GestioneAssegnazioni = () => {
   const [dialogEliminazioneOpen, setDialogEliminazioneOpen] = useState(false);
   const [militareSelezionato, setMilitareSelezionato] = useState(null);
   const [cameraSelezionata, setCameraSelezionata] = useState(null);
-  const [assegnazioneIdDaEliminare, setAssegnazioneIdDaEliminare] =
-    useState(null);
+  const [assegnazioneIdDaEliminare, setAssegnazioneIdDaEliminare] = useState(null);
+
+  // Filtri
+  const [filtri, setFiltri] = useState({
+    cognome: '',
+    numeroCamera: '',
+    edificio: ''
+  });
+
+  // Ordinamento
+  const [orderBy, setOrderBy] = useState('cognome');
+  const [order, setOrder] = useState('asc');
 
   const [formData, setFormData] = useState({
     matricola_alloggiato: "",
@@ -71,6 +85,10 @@ const GestioneAssegnazioni = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    applicaFiltri();
+  }, [filtri, assegnazioni, order, orderBy]);
 
   const loadData = async () => {
     try {
@@ -98,6 +116,100 @@ const GestioneAssegnazioni = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applicaFiltri = () => {
+    let risultato = [...assegnazioni];
+
+    // Applica filtri
+    if (filtri.cognome) {
+      risultato = risultato.filter((a) =>
+        a.alloggiato.cognome.toLowerCase().includes(filtri.cognome.toLowerCase())
+      );
+    }
+
+    if (filtri.numeroCamera) {
+      risultato = risultato.filter((a) =>
+        a.camera.numero_camera.toLowerCase().includes(filtri.numeroCamera.toLowerCase())
+      );
+    }
+
+    if (filtri.edificio) {
+      risultato = risultato.filter((a) =>
+        a.camera.edificio.toLowerCase().includes(filtri.edificio.toLowerCase())
+      );
+    }
+
+    // Applica ordinamento
+    risultato.sort((a, b) => {
+      let valoreA, valoreB;
+
+      switch (orderBy) {
+        case 'matricola':
+          valoreA = a.alloggiato.matricola;
+          valoreB = b.alloggiato.matricola;
+          break;
+        case 'cognome':
+          valoreA = a.alloggiato.cognome;
+          valoreB = b.alloggiato.cognome;
+          break;
+        case 'grado':
+          valoreA = a.alloggiato.grado?.descrizione || '';
+          valoreB = b.alloggiato.grado?.descrizione || '';
+          break;
+        case 'camera':
+          valoreA = a.camera.numero_camera;
+          valoreB = b.camera.numero_camera;
+          break;
+        case 'edificio':
+          valoreA = a.camera.edificio;
+          valoreB = b.camera.edificio;
+          break;
+        case 'piano':
+          valoreA = a.camera.piano;
+          valoreB = b.camera.piano;
+          break;
+        case 'data_assegnazione':
+          valoreA = new Date(a.data_assegnazione);
+          valoreB = new Date(b.data_assegnazione);
+          break;
+        default:
+          valoreA = '';
+          valoreB = '';
+      }
+
+      if (valoreA < valoreB) {
+        return order === 'asc' ? -1 : 1;
+      }
+      if (valoreA > valoreB) {
+        return order === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    setAssegnazioniFiltrate(risultato);
+  };
+
+  const handleRequestSort = (property) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const handleFiltroChange = (e) => {
+    const { name, value } = e.target;
+    setFiltri(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleResetFiltri = () => {
+    setFiltri({
+      cognome: '',
+      numeroCamera: '',
+      edificio: ''
+    });
   };
 
   const handleOpenDialog = () => {
@@ -187,7 +299,6 @@ const GestioneAssegnazioni = () => {
   };
 
   const handleDelete = (assegnazione) => {
-    // Prepara i dati del militare e della camera
     const militare = {
       matricola: assegnazione.alloggiato.matricola,
       grado: assegnazione.alloggiato.grado?.descrizione || "N/A",
@@ -200,7 +311,6 @@ const GestioneAssegnazioni = () => {
       edificio: assegnazione.camera.edificio,
     };
 
-    // Imposta gli state e apri il dialogo
     setMilitareSelezionato(militare);
     setCameraSelezionata(camera);
     setAssegnazioneIdDaEliminare(assegnazione.id);
@@ -210,13 +320,8 @@ const GestioneAssegnazioni = () => {
   const handleConfirmEliminazione = async ({ dataUscita, note }) => {
     try {
       setError(null);
+      const username = "admin";
 
-      // Ottieni lo username dell'utente corrente
-      // Se hai un AuthContext usa: const { currentUser } = useAuth();
-      // const username = currentUser?.username || 'admin';
-      const username = "admin"; // Modifica questo con il vero username
-
-      // Chiama il service per spostare in storico
       const response = await storicoAssegnazioniService.spostaInStorico(
         assegnazioneIdDaEliminare,
         dataUscita,
@@ -226,35 +331,23 @@ const GestioneAssegnazioni = () => {
 
       if (response.data.success) {
         setSuccess("Militare rimosso dalla camera e spostato nello storico!");
-
-        // Ricarica i dati
+        setDialogEliminazioneOpen(false);
         loadData();
-
-        // Chiudi il dialogo dopo un breve delay
-        setTimeout(() => {
-          setDialogEliminazioneOpen(false);
-          setSuccess(null);
-        }, 2000);
-      } else {
-        setError(response.data.error || "Errore nella rimozione");
+        setTimeout(() => setSuccess(null), 3000);
       }
-    } catch (error) {
-      console.error("Errore nell'eliminazione:", error);
+    } catch (err) {
+      console.error("Errore rimozione assegnazione:", err);
       setError(
-        error.response?.data?.error ||
-          "Errore nella rimozione del militare dalla camera"
+        err.response?.data?.error ||
+          "Errore nella rimozione dell'assegnazione"
       );
+      setTimeout(() => setError(null), 5000);
     }
   };
 
   if (loading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="400px"
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
       </Box>
     );
@@ -262,99 +355,189 @@ const GestioneAssegnazioni = () => {
 
   return (
     <Box>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
+      {/* Header */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Gestione Assegnazioni</Typography>
         <Box>
-          <IconButton onClick={loadData} sx={{ mr: 1 }}>
-            <RefreshIcon />
-          </IconButton>
+          <Tooltip title="Ricarica dati">
+            <IconButton onClick={loadData} sx={{ mr: 1 }}>
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleOpenDialog}
-            disabled={
-              alloggiatiSenzaCamera.length === 0 ||
-              camereDisponibili.length === 0
-            }
           >
             Nuova Assegnazione
           </Button>
         </Box>
       </Box>
 
+      {/* Alert messaggi */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
       {success && (
-        <Alert
-          severity="success"
-          sx={{ mb: 2 }}
-          onClose={() => setSuccess(null)}
-        >
+        <Alert severity="success" onClose={() => setSuccess(null)} sx={{ mb: 2 }}>
           {success}
         </Alert>
       )}
 
-      {alloggiatiSenzaCamera.length === 0 && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Non ci sono alloggiati senza camera da assegnare
-        </Alert>
-      )}
+      {/* Filtri */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Filtri di Ricerca
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              label="Cognome"
+              name="cognome"
+              value={filtri.cognome}
+              onChange={handleFiltroChange}
+              size="small"
+              placeholder="es. Rossi"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              label="Numero Camera"
+              name="numeroCamera"
+              value={filtri.numeroCamera}
+              onChange={handleFiltroChange}
+              size="small"
+              placeholder="es. 101"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              select
+              label="Edificio"
+              name="edificio"
+              value={filtri.edificio}
+              onChange={handleFiltroChange}
+              size="small"
+              SelectProps={{
+                displayEmpty: true
+              }}
+            >
+              <MenuItem value="">Tutti</MenuItem>
+              <MenuItem value="nuovo">Nuovo</MenuItem>
+              <MenuItem value="vecchio">Vecchio</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3} display="flex" alignItems="center" gap={1}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<ClearIcon />}
+              onClick={handleResetFiltri}
+            >
+              Reimposta
+            </Button>
+          </Grid>
+        </Grid>
 
-      {camereDisponibili.length === 0 && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Nessuna camera disponibile
-        </Alert>
-      )}
+        {/* Info risultati */}
+        <Box mt={2}>
+          <Typography variant="body2" color="text.secondary">
+            Visualizzati <strong>{assegnazioniFiltrate.length}</strong> di <strong>{assegnazioni.length}</strong> assegnazioni
+          </Typography>
+        </Box>
+      </Paper>
 
+      {/* Tabella Assegnazioni */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>
-                <strong>Matricola</strong>
+                <TableSortLabel
+                  active={orderBy === 'matricola'}
+                  direction={orderBy === 'matricola' ? order : 'asc'}
+                  onClick={() => handleRequestSort('matricola')}
+                >
+                  <strong>Matricola</strong>
+                </TableSortLabel>
               </TableCell>
               <TableCell>
-                <strong>Cognome Nome</strong>
+                <TableSortLabel
+                  active={orderBy === 'cognome'}
+                  direction={orderBy === 'cognome' ? order : 'asc'}
+                  onClick={() => handleRequestSort('cognome')}
+                >
+                  <strong>Cognome Nome</strong>
+                </TableSortLabel>
               </TableCell>
               <TableCell>
-                <strong>Grado</strong>
+                <TableSortLabel
+                  active={orderBy === 'grado'}
+                  direction={orderBy === 'grado' ? order : 'asc'}
+                  onClick={() => handleRequestSort('grado')}
+                >
+                  <strong>Grado</strong>
+                </TableSortLabel>
               </TableCell>
               <TableCell>
-                <strong>Camera</strong>
+                <TableSortLabel
+                  active={orderBy === 'camera'}
+                  direction={orderBy === 'camera' ? order : 'asc'}
+                  onClick={() => handleRequestSort('camera')}
+                >
+                  <strong>Camera</strong>
+                </TableSortLabel>
               </TableCell>
               <TableCell>
-                <strong>Edificio</strong>
+                <TableSortLabel
+                  active={orderBy === 'edificio'}
+                  direction={orderBy === 'edificio' ? order : 'asc'}
+                  onClick={() => handleRequestSort('edificio')}
+                >
+                  <strong>Edificio</strong>
+                </TableSortLabel>
               </TableCell>
               <TableCell>
-                <strong>Piano</strong>
+                <TableSortLabel
+                  active={orderBy === 'piano'}
+                  direction={orderBy === 'piano' ? order : 'asc'}
+                  onClick={() => handleRequestSort('piano')}
+                >
+                  <strong>Piano</strong>
+                </TableSortLabel>
               </TableCell>
               <TableCell>
-                <strong>Data Assegnazione</strong>
+                <TableSortLabel
+                  active={orderBy === 'data_assegnazione'}
+                  direction={orderBy === 'data_assegnazione' ? order : 'asc'}
+                  onClick={() => handleRequestSort('data_assegnazione')}
+                >
+                  <strong>Data Assegnazione</strong>
+                </TableSortLabel>
               </TableCell>
-              <TableCell>
+              <TableCell align="center">
                 <strong>Azioni</strong>
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {assegnazioni.length === 0 ? (
+            {assegnazioniFiltrate.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center">
                   <Typography variant="body2" color="textSecondary">
-                    Nessuna assegnazione attiva
+                    {filtri.cognome || filtri.numeroCamera || filtri.edificio
+                      ? 'Nessuna assegnazione trovata con i filtri applicati'
+                      : 'Nessuna assegnazione attiva'}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              assegnazioni.map((assegnazione) => (
+              assegnazioniFiltrate.map((assegnazione) => (
                 <TableRow key={assegnazione.id} hover>
                   <TableCell>{assegnazione.alloggiato.matricola}</TableCell>
                   <TableCell>
@@ -378,23 +561,25 @@ const GestioneAssegnazioni = () => {
                       assegnazione.data_assegnazione
                     ).toLocaleDateString("it-IT")}
                   </TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleOpenSpostaDialog(assegnazione)}
-                      title="Sposta alloggiato"
-                    >
-                      <SwapIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDelete(assegnazione)}
-                      title="Rimuovi dalla camera"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                  <TableCell align="center">
+                    <Tooltip title="Sposta alloggiato">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleOpenSpostaDialog(assegnazione)}
+                      >
+                        <SwapIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Rimuovi dalla camera">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(assegnazione)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))
@@ -424,6 +609,18 @@ const GestioneAssegnazioni = () => {
               </Alert>
             )}
 
+            {alloggiatiSenzaCamera.length === 0 && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Non ci sono alloggiati senza camera disponibile
+              </Alert>
+            )}
+
+            {camereDisponibili.length === 0 && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Non ci sono camere con posti disponibili
+              </Alert>
+            )}
+
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12}>
                 <TextField
@@ -434,6 +631,7 @@ const GestioneAssegnazioni = () => {
                   name="matricola_alloggiato"
                   value={formData.matricola_alloggiato}
                   onChange={handleChange}
+                  disabled={alloggiatiSenzaCamera.length === 0}
                   SelectProps={{
                     MenuProps: {
                       PaperProps: {
@@ -466,6 +664,7 @@ const GestioneAssegnazioni = () => {
                   name="id_camera"
                   value={formData.id_camera}
                   onChange={handleChange}
+                  disabled={camereDisponibili.length === 0}
                   SelectProps={{
                     MenuProps: {
                       PaperProps: {
@@ -502,7 +701,11 @@ const GestioneAssegnazioni = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseDialog}>Annulla</Button>
-            <Button type="submit" variant="contained" disabled={!!success}>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={!!success || alloggiatiSenzaCamera.length === 0 || camereDisponibili.length === 0}
+            >
               Assegna
             </Button>
           </DialogActions>
@@ -597,6 +800,8 @@ const GestioneAssegnazioni = () => {
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* Dialog Eliminazione */}
       <DialogEliminazioneCamera
         open={dialogEliminazioneOpen}
         onClose={() => setDialogEliminazioneOpen(false)}

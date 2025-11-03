@@ -136,7 +136,9 @@ exports.createCamera = async (req, res) => {
       nr_posti, 
       genere, 
       id_categoria,
-      note 
+      note,
+      agibile,
+      manutenzione
     } = req.body;
     
     // Validazioni
@@ -175,7 +177,9 @@ exports.createCamera = async (req, res) => {
       nr_posti: parseInt(nr_posti),
       genere,
       id_categoria: parseInt(id_categoria),
-      note
+      note,
+      agibile: agibile !== undefined ? agibile : true,
+      manutenzione: manutenzione !== undefined ? manutenzione : false
     });
     
     // Recupera camera con relazioni
@@ -217,7 +221,9 @@ exports.updateCamera = async (req, res) => {
       nr_posti, 
       genere, 
       id_categoria,
-      note 
+      note,
+      agibile,
+      manutenzione
     } = req.body;
     
     // Trova camera
@@ -278,7 +284,9 @@ exports.updateCamera = async (req, res) => {
       nr_posti: nr_posti !== undefined ? parseInt(nr_posti) : camera.nr_posti,
       genere: genere || camera.genere,
       id_categoria: id_categoria || camera.id_categoria,
-      note: note !== undefined ? note : camera.note
+      note: note !== undefined ? note : camera.note,
+      agibile: agibile !== undefined ? agibile : camera.agibile,
+      manutenzione: manutenzione !== undefined ? manutenzione : camera.manutenzione
     });
     
     // Recupera camera aggiornata
@@ -333,6 +341,8 @@ exports.getStats = async (req, res) => {
     let camereLibere = 0;
     let camereParziali = 0;
     let camereComplete = 0;
+    let camereNonAgibili = 0;
+    let camereInManutenzione = 0;
     
     // Statistiche per categoria
     const statPerCategoria = {};
@@ -347,6 +357,9 @@ exports.getStats = async (req, res) => {
       if (occupati === 0) camereLibere++;
       else if (occupati < posti) camereParziali++;
       else camereComplete++;
+      
+      if (camera.agibile === false) camereNonAgibili++;
+      if (camera.manutenzione === true) camereInManutenzione++;
       
       // Per categoria
       const catId = camera.categoria.codice;
@@ -376,9 +389,11 @@ exports.getStats = async (req, res) => {
           posti_liberi: totalePosti - postiOccupati,
           camere_libere: camereLibere,
           camere_parziali: camereParziali,
-          camere_complete: camereComplete
+          camere_complete: camereComplete,
+          camere_non_agibili: camereNonAgibili,
+          camere_in_manutenzione: camereInManutenzione
         },
-        per_categoria: statPerCategoria
+        per_categoria: Object.values(statPerCategoria)
       }
     });
     

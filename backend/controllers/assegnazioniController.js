@@ -531,6 +531,7 @@ exports.getOccupazioneCamera = async (req, res) => {
           ala: camera.ala,
           genere: camera.genere,
           categoria: camera.categoria,
+          note: camera.note
         },
         posti_totali: camera.nr_posti,
         posti_occupati: postiOccupati,

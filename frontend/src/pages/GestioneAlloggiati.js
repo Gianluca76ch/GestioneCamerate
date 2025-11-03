@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Paper,
@@ -20,21 +20,21 @@ import {
   Grid,
   Alert,
   CircularProgress,
-  Chip
-} from '@mui/material';
+  Chip,
+} from "@mui/material";
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon
-} from '@mui/icons-material';
+  Refresh as RefreshIcon,
+} from "@mui/icons-material";
 import {
   getAllAlloggiati,
   createAlloggiato,
   updateAlloggiato,
-  deleteAlloggiato
-} from '../services/alloggiatiService';
-import { getAllGradi } from '../services/gradiService';
+  deleteAlloggiato,
+} from "../services/alloggiatiService";
+import { getAllGradi } from "../services/gradiService";
 
 const GestioneAlloggiati = () => {
   const [alloggiati, setAlloggiati] = useState([]);
@@ -47,13 +47,14 @@ const GestioneAlloggiati = () => {
   const [success, setSuccess] = useState(null);
 
   const [formData, setFormData] = useState({
-    matricola: '',
-    id_grado: '',
-    cognome: '',
-    nome: '',
-    telefono: '',
-    codice_reparto: '',
-    descrizione_reparto: ''
+    matricola: "",
+    id_grado: "",
+    cognome: "",
+    nome: "",
+    telefono: "",
+    codice_reparto: "",
+    descrizione_reparto: "",
+    tipo_ferma: "FV",
   });
 
   useEffect(() => {
@@ -66,13 +67,13 @@ const GestioneAlloggiati = () => {
       setError(null);
       const [alloggiatiRes, gradiRes] = await Promise.all([
         getAllAlloggiati(),
-        getAllGradi()
+        getAllGradi(),
       ]);
       setAlloggiati(alloggiatiRes.data || []);
       setGradi(gradiRes.data || []);
     } catch (err) {
-      console.error('Errore caricamento dati:', err);
-      setError('Errore nel caricamento dei dati');
+      console.error("Errore caricamento dati:", err);
+      setError("Errore nel caricamento dei dati");
     } finally {
       setLoading(false);
     }
@@ -87,21 +88,23 @@ const GestioneAlloggiati = () => {
         id_grado: alloggiato.id_grado,
         cognome: alloggiato.cognome,
         nome: alloggiato.nome,
-        telefono: alloggiato.telefono || '',
-        codice_reparto: alloggiato.codice_reparto || '',
-        descrizione_reparto: alloggiato.descrizione_reparto || ''
+        telefono: alloggiato.telefono || "",
+        codice_reparto: alloggiato.codice_reparto || "",
+        descrizione_reparto: alloggiato.descrizione_reparto || "",
+        tipo_ferma: alloggiato.tipo_ferma || "FV",
       });
     } else {
       setEditMode(false);
       setCurrentAlloggiato(null);
       setFormData({
-        matricola: '',
-        id_grado: '',
-        cognome: '',
-        nome: '',
-        telefono: '',
-        codice_reparto: '',
-        descrizione_reparto: ''
+        matricola: "",
+        id_grado: "",
+        cognome: "",
+        nome: "",
+        telefono: "",
+        codice_reparto: "",
+        descrizione_reparto: "",
+        tipo_ferma: "FV",
       });
     }
     setOpenDialog(true);
@@ -117,9 +120,9 @@ const GestioneAlloggiati = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -131,15 +134,15 @@ const GestioneAlloggiati = () => {
     try {
       const dataToSend = {
         ...formData,
-        id_grado: parseInt(formData.id_grado)
+        id_grado: parseInt(formData.id_grado),
       };
 
       if (editMode) {
         await updateAlloggiato(currentAlloggiato.matricola, dataToSend);
-        setSuccess('Alloggiato aggiornato con successo!');
+        setSuccess("Alloggiato aggiornato con successo!");
       } else {
         await createAlloggiato(dataToSend);
-        setSuccess('Alloggiato creato con successo!');
+        setSuccess("Alloggiato creato con successo!");
       }
 
       setTimeout(() => {
@@ -147,8 +150,10 @@ const GestioneAlloggiati = () => {
         loadData();
       }, 1500);
     } catch (err) {
-      console.error('Errore salvataggio alloggiato:', err);
-      setError(err.response?.data?.error || 'Errore nel salvataggio dell\'alloggiato');
+      console.error("Errore salvataggio alloggiato:", err);
+      setError(
+        err.response?.data?.error || "Errore nel salvataggio dell'alloggiato"
+      );
     }
   };
 
@@ -159,19 +164,26 @@ const GestioneAlloggiati = () => {
 
     try {
       await deleteAlloggiato(matricola);
-      setSuccess('Alloggiato eliminato con successo!');
+      setSuccess("Alloggiato eliminato con successo!");
       loadData();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      console.error('Errore eliminazione alloggiato:', err);
-      setError(err.response?.data?.error || 'Errore nell\'eliminazione dell\'alloggiato');
+      console.error("Errore eliminazione alloggiato:", err);
+      setError(
+        err.response?.data?.error || "Errore nell'eliminazione dell'alloggiato"
+      );
       setTimeout(() => setError(null), 5000);
     }
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="400px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -179,7 +191,12 @@ const GestioneAlloggiati = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
         <Typography variant="h4">Gestione Alloggiati</Typography>
         <Box>
           <IconButton onClick={loadData} sx={{ mr: 1 }}>
@@ -195,22 +212,55 @@ const GestioneAlloggiati = () => {
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          onClose={() => setSuccess(null)}
+        >
+          {success}
+        </Alert>
+      )}
 
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell><strong>Matricola</strong></TableCell>
-              <TableCell><strong>Cognome</strong></TableCell>
-              <TableCell><strong>Nome</strong></TableCell>
-              <TableCell><strong>Grado</strong></TableCell>
-              <TableCell><strong>Categoria</strong></TableCell>
-              <TableCell><strong>Telefono</strong></TableCell>
-              <TableCell><strong>Reparto</strong></TableCell>
-              <TableCell><strong>Camera</strong></TableCell>
-              <TableCell><strong>Azioni</strong></TableCell>
+              <TableCell>
+                <strong>Matricola</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Cognome</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Nome</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Grado</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Categoria</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Tipo Ferma</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Telefono</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Reparto</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Camera</strong>
+              </TableCell>
+              <TableCell>
+                <strong>Azioni</strong>
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -229,9 +279,12 @@ const GestioneAlloggiati = () => {
                   <TableCell>{alloggiato.cognome}</TableCell>
                   <TableCell>{alloggiato.nome}</TableCell>
                   <TableCell>{alloggiato.grado?.descrizione}</TableCell>
-                  <TableCell>{alloggiato.grado?.categoria?.descrizione}</TableCell>
-                  <TableCell>{alloggiato.telefono || '-'}</TableCell>
-                  <TableCell>{alloggiato.codice_reparto || '-'}</TableCell>
+                  <TableCell>
+                    {alloggiato.grado?.categoria?.descrizione}
+                  </TableCell>
+                  <TableCell>{alloggiato.tipo_ferma}</TableCell>
+                  <TableCell>{alloggiato.telefono || "-"}</TableCell>
+                  <TableCell>{alloggiato.codice_reparto || "-"}</TableCell>
                   <TableCell>
                     {alloggiato.ha_camera ? (
                       <Chip
@@ -255,7 +308,13 @@ const GestioneAlloggiati = () => {
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => handleDelete(alloggiato.matricola, alloggiato.cognome, alloggiato.nome)}
+                      onClick={() =>
+                        handleDelete(
+                          alloggiato.matricola,
+                          alloggiato.cognome,
+                          alloggiato.nome
+                        )
+                      }
                       title="Elimina"
                     >
                       <DeleteIcon fontSize="small" />
@@ -269,17 +328,30 @@ const GestioneAlloggiati = () => {
       </TableContainer>
 
       {/* Dialog Crea/Modifica Alloggiato */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+      >
         <form onSubmit={handleSubmit}>
           <DialogTitle>
-            {editMode ? 'Modifica Alloggiato' : 'Nuovo Alloggiato'}
+            {editMode ? "Modifica Alloggiato" : "Nuovo Alloggiato"}
           </DialogTitle>
           <DialogContent>
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {success}
+              </Alert>
+            )}
 
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   required
@@ -292,7 +364,7 @@ const GestioneAlloggiati = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   required
@@ -305,10 +377,10 @@ const GestioneAlloggiati = () => {
                     MenuProps: {
                       PaperProps: {
                         style: {
-                          maxHeight: 400
-                        }
-                      }
-                    }
+                          maxHeight: 400,
+                        },
+                      },
+                    },
                   }}
                 >
                   <MenuItem value="">Seleziona grado</MenuItem>
@@ -317,6 +389,21 @@ const GestioneAlloggiati = () => {
                       {grado.descrizione} ({grado.categoria?.descrizione})
                     </MenuItem>
                   ))}
+                </TextField>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  required
+                  select
+                  label="Tipo Ferma"
+                  name="tipo_ferma"
+                  value={formData.tipo_ferma}
+                  onChange={handleChange}
+                >
+                  <MenuItem value="FV">Ferma volontaria</MenuItem>
+                  <MenuItem value="SPE">SPE</MenuItem>
                 </TextField>
               </Grid>
 
@@ -381,7 +468,7 @@ const GestioneAlloggiati = () => {
           <DialogActions>
             <Button onClick={handleCloseDialog}>Annulla</Button>
             <Button type="submit" variant="contained" disabled={!!success}>
-              {editMode ? 'Salva Modifiche' : 'Crea Alloggiato'}
+              {editMode ? "Salva Modifiche" : "Crea Alloggiato"}
             </Button>
           </DialogActions>
         </form>

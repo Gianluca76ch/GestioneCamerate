@@ -4,7 +4,7 @@ const { Op } = require('sequelize');
 // GET - Lista tutti gli alloggiati con filtri opzionali
 exports.getAllAlloggiati = async (req, res) => {
   try {
-    const { grado, categoria, reparto, cognome, con_camera, senza_camera } = req.query;
+    const { grado, categoria, reparto, cognome, con_camera, senza_camera, tipo_ferma } = req.query;
     
     let whereClause = {};
     let includeAssegnazioni = {
@@ -28,6 +28,10 @@ exports.getAllAlloggiati = async (req, res) => {
     }
     if (reparto) {
       whereClause.codice_reparto = { [Op.like]: `%${reparto}%` };
+    }
+
+    if (tipo_ferma ){
+      whereClause.tipo_ferma = tipo_ferma;
     }
     
     const alloggiati = await Alloggiato.findAll({
@@ -168,7 +172,8 @@ exports.createAlloggiato = async (req, res) => {
       nome, 
       telefono, 
       codice_reparto, 
-      descrizione_reparto 
+      descrizione_reparto,
+      tipo_ferma
     } = req.body;
     
     // Validazioni
@@ -206,7 +211,8 @@ exports.createAlloggiato = async (req, res) => {
       nome: nome.trim(),
       telefono: telefono ? telefono.trim() : null,
       codice_reparto: codice_reparto ? codice_reparto.trim() : null,
-      descrizione_reparto: descrizione_reparto ? descrizione_reparto.trim() : null
+      descrizione_reparto: descrizione_reparto ? descrizione_reparto.trim() : null,
+      tipo_ferma: tipo_ferma || 'FV'
     });
     
     // Recupera alloggiato con relazioni
@@ -253,7 +259,8 @@ exports.updateAlloggiato = async (req, res) => {
       nome, 
       telefono, 
       codice_reparto, 
-      descrizione_reparto 
+      descrizione_reparto,
+      tipo_ferma
     } = req.body;
     
     // Trova alloggiato
@@ -284,7 +291,8 @@ exports.updateAlloggiato = async (req, res) => {
       nome: nome ? nome.trim() : alloggiato.nome,
       telefono: telefono !== undefined ? (telefono ? telefono.trim() : null) : alloggiato.telefono,
       codice_reparto: codice_reparto !== undefined ? (codice_reparto ? codice_reparto.trim() : null) : alloggiato.codice_reparto,
-      descrizione_reparto: descrizione_reparto !== undefined ? (descrizione_reparto ? descrizione_reparto.trim() : null) : alloggiato.descrizione_reparto
+      descrizione_reparto: descrizione_reparto !== undefined ? (descrizione_reparto ? descrizione_reparto.trim() : null) : alloggiato.descrizione_reparto,
+      tipo_ferma: tipo_ferma || alloggiato.tipo_ferma
     });
     
     // Recupera alloggiato aggiornato
@@ -400,16 +408,31 @@ exports.getStats = async (req, res) => {
     let totaleAlloggiati = alloggiati.length;
     let alloggiatiConCamera = 0;
     let alloggiatiSenzaCamera = 0;
+    let totaleFV = 0;
+    let totaleSPE = 0;
     
     // Statistiche per categoria
     const statPerCategoria = {};
-    
+    const statPerTipoFerma = {
+      FV: { totale: 0, con_camera: 0, senza_camera: 0 },
+      SPE: { totale: 0, con_camera: 0, senza_camera: 0 }
+    };
+
     alloggiati.forEach(alloggiato => {
       const haCamera = alloggiato.assegnazioni && alloggiato.assegnazioni.length > 0;
-      
+      const tipoFerma = alloggiato.tipo_ferma || 'FV';
+
       if (haCamera) alloggiatiConCamera++;
       else alloggiatiSenzaCamera++;
       
+      if (tipoFerma === 'FV') totaleFV++;
+      else if (tipoFerma === 'SPE') totaleSPE++;
+
+            // Statistiche per tipo ferma
+      statPerTipoFerma[tipoFerma].totale++;
+      if (haCamera) statPerTipoFerma[tipoFerma].con_camera++;
+      else statPerTipoFerma[tipoFerma].senza_camera++;
+
       // Per categoria
       const catCodice = alloggiato.grado.categoria.codice;
       if (!statPerCategoria[catCodice]) {
@@ -424,6 +447,10 @@ exports.getStats = async (req, res) => {
       statPerCategoria[catCodice].totale++;
       if (haCamera) statPerCategoria[catCodice].con_camera++;
       else statPerCategoria[catCodice].senza_camera++;
+
+            // Conta tipo ferma per categoria
+      if (tipoFerma === 'FV') statPerCategoria[catCodice].FV++;
+      else if (tipoFerma === 'SPE') statPerCategoria[catCodice].SPE++;
     });
     
     res.json({
@@ -432,8 +459,11 @@ exports.getStats = async (req, res) => {
         generale: {
           totale_alloggiati: totaleAlloggiati,
           con_camera: alloggiatiConCamera,
-          senza_camera: alloggiatiSenzaCamera
+          senza_camera: alloggiatiSenzaCamera,
+          totale_FV: totaleFV,
+          totale_SPE: totaleSPE
         },
+        per_tipo_ferma: statPerTipoFerma,
         per_categoria: statPerCategoria
       }
     });

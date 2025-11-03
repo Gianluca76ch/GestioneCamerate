@@ -34,6 +34,12 @@ const Alloggiato = sequelize.define('Alloggiato', {
   descrizione_reparto: {
     type: DataTypes.STRING(200),
     allowNull: true
+  },
+  tipo_ferma: {
+    type: DataTypes.ENUM('FV', 'SPE'),
+    allowNull: false,
+    defaultValue: 'FV',
+    comment: 'Tipo di ferma, volontaria o SPE'
   }
 }, {
   tableName: 'alloggiati',

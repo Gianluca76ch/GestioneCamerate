@@ -1,6 +1,6 @@
 // frontend/src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api from '../services/api';  // ← USA api.js centralizzato
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -18,7 +18,41 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // 1. Ottieni utente corrente da Windows Authentication
+      console.log('🔐 Inizio autenticazione...');
+
+      // 1. OTTIENI USERNAME DA IIS (whoami.aspx)
+      let windowsUsername = null;
+      
+      try {
+        // In produzione, chiama whoami.aspx (gestito da IIS)
+        const whoamiResponse = await fetch('/whoami.ashx', {
+          credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (whoamiResponse.ok) {
+          const whoamiData = await whoamiResponse.json();
+          console.log('✅ Risposta da whoami.aspx:', whoamiData);
+          
+          if (whoamiData.success && whoamiData.username) {
+            windowsUsername = whoamiData.username;
+            console.log('✅ Username Windows ottenuto:', windowsUsername);
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Errore chiamata whoami.aspx (probabile development):', err.message);
+      }
+
+      // 2. PASSA USERNAME AL BACKEND
+      // Imposta l'header per tutte le chiamate successive
+      if (windowsUsername) {
+        api.defaults.headers.common['X-Authenticated-User'] = windowsUsername;
+        console.log('✅ Header X-Authenticated-User impostato:', windowsUsername);
+      }
+
+      // 3. VERIFICA UTENTE CON BACKEND
       const userResponse = await api.get('/auth/user');
       
       if (!userResponse.data.success) {
@@ -26,23 +60,25 @@ export const AuthProvider = ({ children }) => {
       }
 
       const userData = userResponse.data.data;
+      console.log('✅ Utente verificato dal backend:', userData);
 
-      // 2. Verifica se l'utente è admin (OBBLIGATORIO)
+      // 4. VERIFICA SE È ADMIN
       let isAdmin = false;
       try {
         const adminResponse = await api.get('/auth/isAdmin');
         isAdmin = adminResponse.data.success && adminResponse.data.data.isAdmin;
+        console.log('🔍 Verifica admin:', isAdmin);
       } catch (err) {
-        console.error('Errore verifica admin:', err);
+        console.error('❌ Errore verifica admin:', err);
         throw new Error('Impossibile verificare i permessi di amministratore');
       }
 
-      // 3. BLOCCO: Se non è admin, nega l'accesso
+      // 5. BLOCCO: Se non è admin, nega l'accesso
       if (!isAdmin) {
         throw new Error('ACCESSO NEGATO: Solo gli amministratori possono accedere a questa applicazione');
       }
 
-      // 4. Costruisci oggetto utente completo (solo per admin)
+      // 6. COSTRUISCI OGGETTO UTENTE
       const fullUser = {
         username: userData.username,
         displayName: userData.username,
@@ -52,10 +88,11 @@ export const AuthProvider = ({ children }) => {
         role: 'admin'
       };
 
+      console.log('✅ Autenticazione completata:', fullUser);
       setUser(fullUser);
 
     } catch (err) {
-      console.error('Errore autenticazione:', err);
+      console.error('❌ Errore autenticazione:', err);
       const errorMessage = err.message || 'Errore durante l\'autenticazione';
       setError(errorMessage);
       setUser(null);
@@ -124,71 +161,38 @@ export const AuthProvider = ({ children }) => {
               </h2>
               
               {/* Messaggio */}
-              <div className="alert alert-danger mb-4" role="alert">
-                <p className="mb-0" style={{ fontSize: '16px' }}>
-                  {error || 'Impossibile autenticare l\'utente'}
-                </p>
-              </div>
+              <p className="card-text mb-4" style={{ fontSize: '16px', color: '#666' }}>
+                {error}
+              </p>
               
-              {/* Informazioni */}
+              {/* Info aggiuntive solo per errori non-admin */}
               {error?.includes('ACCESSO NEGATO') && (
                 <div className="alert alert-info" role="alert">
-                  <strong>ℹ️ Informazioni:</strong>
-                  <p className="mb-0 mt-2">
-                    Questa applicazione è riservata esclusivamente ai gestori del COmando Provinciale.
-                    Se ritieni di dover avere accesso, contatta il Fin. Catalano per essere aggiunto alla lista degli autorizzati.
-                  </p>
+                  <strong>ℹ️ Informazione:</strong><br/>
+                  Questa applicazione è riservata agli amministratori del sistema.<br/>
+                  Se ritieni di dover avere accesso, contatta l'amministratore di sistema.
                 </div>
               )}
               
-              {/* Dettagli tecnici in development */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="alert alert-warning mt-3" role="alert">
-                  <small>
-                    <strong>⚙️ Development Mode:</strong><br />
-                    Assicurati che la matricola sia presente nella tabella <code>tbl_admin</code>
-                  </small>
-                </div>
-              )}
-              
-              {/* Pulsanti */}
-              <div className="mt-4">
+              {/* Pulsante riprova */}
+              {!error?.includes('ACCESSO NEGATO') && (
                 <button 
-                  className="btn btn-primary btn-lg me-2" 
+                  className="btn btn-primary btn-lg"
                   onClick={() => window.location.reload()}
+                  style={{ marginTop: '20px' }}
                 >
                   🔄 Riprova
                 </button>
-                {process.env.NODE_ENV === 'production' && (
-                  <button 
-                    className="btn btn-outline-secondary btn-lg" 
-                    onClick={() => window.location.href = '/logout-ad'}
-                  >
-                    🚪 Esci
-                  </button>
-                )}
-              </div>
+              )}
             </div>
-          </div>
-          
-          {/* Footer */}
-          <div className="text-center mt-4 text-muted">
-            <small>Sistema Gestione Camerate - Accesso Riservato</small>
           </div>
         </div>
       </div>
     );
   }
 
-  // Utente autenticato correttamente (solo admin arrivano qui)
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      error,
-      logout,
-      refreshAuth: authenticateUser
-    }}>
+    <AuthContext.Provider value={{ user, loading, error, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -197,9 +201,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth deve essere usato all\'interno di AuthProvider');
   }
   return context;
 };
-
-export default AuthContext;

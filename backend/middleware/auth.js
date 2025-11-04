@@ -20,17 +20,17 @@ const windowsAuth = async (req, res, next) => {
     }
 
     // PRODUCTION MODE
-    // L'username può arrivare dal frontend tramite header personalizzato
-    username = req.headers['x-authenticated-user'] ||
-               req.headers['x-iis-windowsauthtoken'] || 
-               req.headers['remote-user'] ||
-               req.connection.user;
+    // L'username arriva dal frontend tramite header X-Authenticated-User
+    // Il frontend lo ottiene da whoami.aspx (gestito da IIS)
+    username = req.headers['x-authenticated-user'];
 
     if (!username) {
-      // TEMPORANEO: Fallback per testing iniziale
-      // TODO: Implementare soluzione completa con endpoint /whoami
-      console.warn('⚠️ Nessun username in header - usando fallback');
-      username = process.env.FALLBACK_USERNAME || 'J972537';
+      console.error('❌ Header X-Authenticated-User mancante');
+      return res.status(401).json({
+        success: false,
+        error: 'Autenticazione richiesta',
+        message: 'Header X-Authenticated-User non presente nella richiesta'
+      });
     }
 
     // Rimuovi dominio se presente (es: GDFNET\J972537 -> J972537)
@@ -51,7 +51,7 @@ const windowsAuth = async (req, res, next) => {
     res.status(500).json({
       success: false,
       error: 'Errore nel middleware di autenticazione',
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Errore interno del server'
     });
   }
 };

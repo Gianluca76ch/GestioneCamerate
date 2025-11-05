@@ -169,8 +169,8 @@ export const AuthProvider = ({ children }) => {
               {error?.includes('ACCESSO NEGATO') && (
                 <div className="alert alert-info" role="alert">
                   <strong>ℹ️ Informazione:</strong><br/>
-                  Questa applicazione è riservata agli amministratori del sistema.<br/>
-                  Se ritieni di dover avere accesso, contatta l'amministratore di sistema.
+                  Questa applicazione è riservata agli utenti autorizzati.<br/>
+                  Se ritieni di dover avere accesso, contatta Catalano Luigi - Comando Provinciale Genova.
                 </div>
               )}
               

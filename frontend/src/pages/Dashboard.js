@@ -19,14 +19,21 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  Table, // ← AGGIUNTO
+  TableContainer, // ← AGGIUNTO
+  TableHead, // ← AGGIUNTO
+  TableBody, // ← AGGIUNTO
+  TableRow, // ← AGGIUNTO
+  TableCell, // ← AGGIUNTO
 } from "@mui/material";
 import {
   Man as ManIcon,
   Woman as WomanIcon,
   People as PeopleIcon,
   Hotel as HotelIcon,
-  Build as BuildIcon, // <-- AGGIUNGI QUESTA (icona manutenzione)
+  Build as BuildIcon,
   DoNotDisturb as DoNotDisturbIcon,
+  Assessment as AssessmentIcon, // ← AGGIUNTO
 } from "@mui/icons-material";
 import { getAllCamere } from "../services/camereService";
 import { getOccupazioneCamera } from "../services/assegnazioniService";
@@ -58,6 +65,12 @@ const Dashboard = () => {
     libere: 0,
     parziali: 0,
     complete: 0,
+  });
+
+  const [openStatsModal, setOpenStatsModal] = useState(false);
+  const [statsDettagliate, setStatsDettagliate] = useState({
+    maschili: [],
+    femminili: [],
   });
 
   useEffect(() => {
@@ -130,6 +143,115 @@ const Dashboard = () => {
     setStats({ totale, libere, parziali, complete });
   };
 
+  const calcolaStatisticheGlobali = () => {
+    // USA TUTTE LE CAMERE (non camereFiltrate)
+    const statsMaschili = {};
+    const statsFemminili = {};
+
+    // Itera su TUTTE le camere, non solo quelle filtrate
+    camere.forEach((camera) => {
+      const categoria = camera.categoria?.descrizione || "N/A";
+      const postiTotali = camera.nr_posti || 0;
+      const postiOccupati = camera.posti_occupati || 0;
+      const postiLiberi = postiTotali - postiOccupati;
+
+      if (camera.genere === "maschile") {
+        if (!statsMaschili[categoria]) {
+          statsMaschili[categoria] = {
+            categoria: categoria,
+            postiTotali: 0,
+            postiOccupati: 0,
+            postiLiberi: 0,
+            numeroCamere: 0,
+          };
+        }
+        statsMaschili[categoria].postiTotali += postiTotali;
+        statsMaschili[categoria].postiOccupati += postiOccupati;
+        statsMaschili[categoria].postiLiberi += postiLiberi;
+        statsMaschili[categoria].numeroCamere += 1;
+      } else if (camera.genere === "femminile") {
+        if (!statsFemminili[categoria]) {
+          statsFemminili[categoria] = {
+            categoria: categoria,
+            postiTotali: 0,
+            postiOccupati: 0,
+            postiLiberi: 0,
+            numeroCamere: 0,
+          };
+        }
+        statsFemminili[categoria].postiTotali += postiTotali;
+        statsFemminili[categoria].postiOccupati += postiOccupati;
+        statsFemminili[categoria].postiLiberi += postiLiberi;
+        statsFemminili[categoria].numeroCamere += 1;
+      }
+    });
+
+    // Converti in array e ordina per categoria
+    const arrayMaschili = Object.values(statsMaschili).sort((a, b) =>
+      a.categoria.localeCompare(b.categoria)
+    );
+    const arrayFemminili = Object.values(statsFemminili).sort((a, b) =>
+      a.categoria.localeCompare(b.categoria)
+    );
+
+    // Aggiungi riga totale
+    const totaleMaschili = {
+      categoria: "TOTALE",
+      postiTotali: arrayMaschili.reduce((sum, cat) => sum + cat.postiTotali, 0),
+      postiOccupati: arrayMaschili.reduce(
+        (sum, cat) => sum + cat.postiOccupati,
+        0
+      ),
+      postiLiberi: arrayMaschili.reduce((sum, cat) => sum + cat.postiLiberi, 0),
+      numeroCamere: arrayMaschili.reduce(
+        (sum, cat) => sum + cat.numeroCamere,
+        0
+      ),
+    };
+
+    const totaleFemminili = {
+      categoria: "TOTALE",
+      postiTotali: arrayFemminili.reduce(
+        (sum, cat) => sum + cat.postiTotali,
+        0
+      ),
+      postiOccupati: arrayFemminili.reduce(
+        (sum, cat) => sum + cat.postiOccupati,
+        0
+      ),
+      postiLiberi: arrayFemminili.reduce(
+        (sum, cat) => sum + cat.postiLiberi,
+        0
+      ),
+      numeroCamere: arrayFemminili.reduce(
+        (sum, cat) => sum + cat.numeroCamere,
+        0
+      ),
+    };
+
+    if (arrayMaschili.length > 0) arrayMaschili.push(totaleMaschili);
+    if (arrayFemminili.length > 0) arrayFemminili.push(totaleFemminili);
+
+    setStatsDettagliate({
+      maschili: arrayMaschili,
+      femminili: arrayFemminili,
+    });
+  };
+
+  const handleOpenStatsModal = () => {
+    calcolaStatisticheGlobali();
+    setOpenStatsModal(true);
+  };
+
+  const handleCloseStatsModal = () => {
+    setOpenStatsModal(false);
+  };
+
+  const getPercentualeOccupazione = (occupati, totali) => {
+    if (totali === 0) return 0;
+    return Math.round((occupati / totali) * 100);
+  };
+
   const handleEdificioChange = (edificio) => {
     setEdificioSelezionato(edificio);
     setPianoSelezionato(null);
@@ -187,9 +309,22 @@ const Dashboard = () => {
   return (
     <Box>
       {/* Header */}
-      <Typography variant="h4" gutterBottom>
-        Dashboard Camere
-      </Typography>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+      >
+        <Typography variant="h4">Dashboard Camere</Typography>
+        <Button
+          variant="outlined"
+          startIcon={<AssessmentIcon />}
+          onClick={handleOpenStatsModal}
+          sx={{ minWidth: "200px" }}
+        >
+          Statistiche Globali
+        </Button>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -361,6 +496,9 @@ const Dashboard = () => {
                   cursor: "pointer",
                   transition: "all 0.3s",
                   bgcolor: "#fafafa",
+                  height: "100%", // ← AGGIUNTO
+                  display: "flex", // ← AGGIUNTO
+                  flexDirection: "column", // ← AGGIUNTO
                   "&:hover": {
                     transform: "translateY(-4px)",
                     boxShadow: 4,
@@ -370,7 +508,11 @@ const Dashboard = () => {
                 }}
                 onClick={() => handleCardClick(camera)}
               >
-                <CardContent>
+                <CardContent
+                  sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}
+                >
+                  {" "}
+                  {/* ← MODIFICATO */}
                   {/* Numero Camera */}
                   <Typography
                     variant="h5"
@@ -380,7 +522,6 @@ const Dashboard = () => {
                   >
                     {camera.numero_camera}
                   </Typography>
-
                   {/* Categoria */}
                   <Chip
                     label={camera.categoria?.descrizione || "N/A"}
@@ -388,7 +529,6 @@ const Dashboard = () => {
                     variant="outlined"
                     sx={{ mb: 1 }}
                   />
-
                   {/* Genere */}
                   <Box display="flex" alignItems="center" gap={1} mb={1}>
                     {camera.genere === "maschile" ? (
@@ -400,15 +540,23 @@ const Dashboard = () => {
                       {camera.genere === "maschile" ? "Maschile" : "Femminile"}
                     </Typography>
                   </Box>
-
                   {/* Occupazione */}
-                  <Box display="flex" alignItems="center" gap={1}>
+                  <Box display="flex" alignItems="center" gap={1} mb={1}>
+                    {" "}
+                    {/* ← AGGIUNTO mb={1} */}
                     <PeopleIcon fontSize="small" color="action" />
                     <Typography variant="body1" fontWeight="bold">
                       {camera.posti_occupati || 0}/{camera.nr_posti} posti
                     </Typography>
                   </Box>
-                  <Box display="flex" alignItems="center" gap={1} mt={1}>
+                  {/* Box Badge - ALTEZZA FISSA */}
+                  <Box
+                    display="flex"
+                    alignItems="center"
+                    gap={1}
+                    mt="auto" // ← MODIFICATO: da mt={1} a mt="auto"
+                    minHeight="32px" // ← AGGIUNTO
+                  >
                     {camera.agibile === false && (
                       <Chip
                         icon={<DoNotDisturbIcon />}
@@ -524,6 +672,358 @@ const Dashboard = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseModal}>Chiudi</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal Statistiche Globali */}
+      <Dialog
+        open={openStatsModal}
+        onClose={handleCloseStatsModal}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <AssessmentIcon color="primary" />
+            <Typography variant="h6">
+              Statistiche Globali - Tutte le Camere
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="textSecondary">
+            Panoramica completa di tutti gli edifici e piani
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3}>
+            {/* Statistiche Maschili */}
+            <Grid item xs={12} md={6}>
+              <Paper elevation={2} sx={{ p: 2 }}>
+                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                  <ManIcon color="primary" />
+                  <Typography variant="h6" color="primary">
+                    Camere Maschili
+                  </Typography>
+                </Box>
+
+                {statsDettagliate.maschili.length === 0 ? (
+                  <Alert severity="info">Nessuna camera maschile trovata</Alert>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>
+                            <strong>Categoria</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Camere</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Totali</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Occupati</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Liberi</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Occup. %</strong>
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {statsDettagliate.maschili.map((stat, index) => (
+                          <TableRow
+                            key={index}
+                            sx={
+                              stat.categoria === "TOTALE"
+                                ? {
+                                    backgroundColor: "#e3f2fd",
+                                    fontWeight: "bold",
+                                  }
+                                : {}
+                            }
+                          >
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                fontWeight={
+                                  stat.categoria === "TOTALE"
+                                    ? "bold"
+                                    : "normal"
+                                }
+                              >
+                                {stat.categoria}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={stat.numeroCamere}
+                                size="small"
+                                color="default"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" fontWeight="medium">
+                                {stat.postiTotali}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={stat.postiOccupati}
+                                size="small"
+                                color="error"
+                                variant={
+                                  stat.categoria === "TOTALE"
+                                    ? "filled"
+                                    : "outlined"
+                                }
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={stat.postiLiberi}
+                                size="small"
+                                color="success"
+                                variant={
+                                  stat.categoria === "TOTALE"
+                                    ? "filled"
+                                    : "outlined"
+                                }
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Box
+                                display="flex"
+                                alignItems="center"
+                                justifyContent="center"
+                                gap={1}
+                              >
+                                <Typography
+                                  variant="body2"
+                                  fontWeight={
+                                    stat.categoria === "TOTALE"
+                                      ? "bold"
+                                      : "normal"
+                                  }
+                                >
+                                  {getPercentualeOccupazione(
+                                    stat.postiOccupati,
+                                    stat.postiTotali
+                                  )}
+                                  %
+                                </Typography>
+                                <Box
+                                  sx={{
+                                    width: 40,
+                                    height: 8,
+                                    bgcolor: "#e0e0e0",
+                                    borderRadius: 1,
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      width: `${getPercentualeOccupazione(
+                                        stat.postiOccupati,
+                                        stat.postiTotali
+                                      )}%`,
+                                      height: "100%",
+                                      bgcolor:
+                                        getPercentualeOccupazione(
+                                          stat.postiOccupati,
+                                          stat.postiTotali
+                                        ) > 80
+                                          ? "#f44336"
+                                          : getPercentualeOccupazione(
+                                              stat.postiOccupati,
+                                              stat.postiTotali
+                                            ) > 50
+                                          ? "#ff9800"
+                                          : "#4caf50",
+                                      transition: "width 0.3s",
+                                    }}
+                                  />
+                                </Box>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+            </Grid>
+
+            {/* Statistiche Femminili */}
+            <Grid item xs={12} md={6}>
+              <Paper elevation={2} sx={{ p: 2 }}>
+                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                  <WomanIcon color="secondary" />
+                  <Typography variant="h6" color="secondary">
+                    Camere Femminili
+                  </Typography>
+                </Box>
+
+                {statsDettagliate.femminili.length === 0 ? (
+                  <Alert severity="info">
+                    Nessuna camera femminile trovata
+                  </Alert>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>
+                            <strong>Categoria</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Camere</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Totali</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Occupati</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Liberi</strong>
+                          </TableCell>
+                          <TableCell align="center">
+                            <strong>Occup. %</strong>
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {statsDettagliate.femminili.map((stat, index) => (
+                          <TableRow
+                            key={index}
+                            sx={
+                              stat.categoria === "TOTALE"
+                                ? {
+                                    backgroundColor: "#fce4ec",
+                                    fontWeight: "bold",
+                                  }
+                                : {}
+                            }
+                          >
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                fontWeight={
+                                  stat.categoria === "TOTALE"
+                                    ? "bold"
+                                    : "normal"
+                                }
+                              >
+                                {stat.categoria}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={stat.numeroCamere}
+                                size="small"
+                                color="default"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" fontWeight="medium">
+                                {stat.postiTotali}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={stat.postiOccupati}
+                                size="small"
+                                color="error"
+                                variant={
+                                  stat.categoria === "TOTALE"
+                                    ? "filled"
+                                    : "outlined"
+                                }
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={stat.postiLiberi}
+                                size="small"
+                                color="success"
+                                variant={
+                                  stat.categoria === "TOTALE"
+                                    ? "filled"
+                                    : "outlined"
+                                }
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Box
+                                display="flex"
+                                alignItems="center"
+                                justifyContent="center"
+                                gap={1}
+                              >
+                                <Typography
+                                  variant="body2"
+                                  fontWeight={
+                                    stat.categoria === "TOTALE"
+                                      ? "bold"
+                                      : "normal"
+                                  }
+                                >
+                                  {getPercentualeOccupazione(
+                                    stat.postiOccupati,
+                                    stat.postiTotali
+                                  )}
+                                  %
+                                </Typography>
+                                <Box
+                                  sx={{
+                                    width: 40,
+                                    height: 8,
+                                    bgcolor: "#e0e0e0",
+                                    borderRadius: 1,
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      width: `${getPercentualeOccupazione(
+                                        stat.postiOccupati,
+                                        stat.postiTotali
+                                      )}%`,
+                                      height: "100%",
+                                      bgcolor:
+                                        getPercentualeOccupazione(
+                                          stat.postiOccupati,
+                                          stat.postiTotali
+                                        ) > 80
+                                          ? "#f44336"
+                                          : getPercentualeOccupazione(
+                                              stat.postiOccupati,
+                                              stat.postiTotali
+                                            ) > 50
+                                          ? "#ff9800"
+                                          : "#4caf50",
+                                      transition: "width 0.3s",
+                                    }}
+                                  />
+                                </Box>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseStatsModal}>Chiudi</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -144,49 +144,56 @@ const Dashboard = () => {
   };
 
   const calcolaStatisticheGlobali = () => {
-    // USA TUTTE LE CAMERE (non camereFiltrate)
     const statsMaschili = {};
     const statsFemminili = {};
 
-    // Itera su TUTTE le camere, non solo quelle filtrate
     camere.forEach((camera) => {
-      const categoria = camera.categoria?.descrizione || "N/A";
+      const categoriaCamera = camera.categoria?.descrizione || "N/A";
       const postiTotali = camera.nr_posti || 0;
-      const postiOccupati = camera.posti_occupati || 0;
-      const postiLiberi = postiTotali - postiOccupati;
+      const postiLiberi = postiTotali - (camera.posti_occupati || 0);
 
-      if (camera.genere === "maschile") {
-        if (!statsMaschili[categoria]) {
-          statsMaschili[categoria] = {
-            categoria: categoria,
-            postiTotali: 0,
-            postiOccupati: 0,
-            postiLiberi: 0,
-            numeroCamere: 0,
-          };
-        }
-        statsMaschili[categoria].postiTotali += postiTotali;
-        statsMaschili[categoria].postiOccupati += postiOccupati;
-        statsMaschili[categoria].postiLiberi += postiLiberi;
-        statsMaschili[categoria].numeroCamere += 1;
-      } else if (camera.genere === "femminile") {
-        if (!statsFemminili[categoria]) {
-          statsFemminili[categoria] = {
-            categoria: categoria,
-            postiTotali: 0,
-            postiOccupati: 0,
-            postiLiberi: 0,
-            numeroCamere: 0,
-          };
-        }
-        statsFemminili[categoria].postiTotali += postiTotali;
-        statsFemminili[categoria].postiOccupati += postiOccupati;
-        statsFemminili[categoria].postiLiberi += postiLiberi;
-        statsFemminili[categoria].numeroCamere += 1;
+      if (camera.agibile === false) return;
+      
+      // POSTI LIBERI: vanno alla categoria della CAMERA
+      const statsTarget =
+        camera.genere === "maschile" ? statsMaschili : statsFemminili;
+
+      if (!statsTarget[categoriaCamera]) {
+        statsTarget[categoriaCamera] = {
+          categoria: categoriaCamera,
+          postiTotali: 0,
+          postiOccupati: 0,
+          postiLiberi: 0,
+          numeroCamere: 0,
+        };
+      }
+
+      statsTarget[categoriaCamera].postiTotali += postiTotali;
+      statsTarget[categoriaCamera].postiLiberi += postiLiberi;
+      statsTarget[categoriaCamera].numeroCamere += 1;
+
+      // POSTI OCCUPATI: vanno alla categoria dell'ALLOGGIATO
+      if (camera.assegnazioni && camera.assegnazioni.length > 0) {
+        camera.assegnazioni.forEach((assegnazione) => {
+          const categoriaAlloggiato =
+            assegnazione.alloggiato?.grado?.categoria?.descrizione || "N/A";
+
+          if (!statsTarget[categoriaAlloggiato]) {
+            statsTarget[categoriaAlloggiato] = {
+              categoria: categoriaAlloggiato,
+              postiTotali: 0,
+              postiOccupati: 0,
+              postiLiberi: 0,
+              numeroCamere: 0,
+            };
+          }
+
+          statsTarget[categoriaAlloggiato].postiOccupati += 1;
+        });
       }
     });
 
-    // Converti in array e ordina per categoria
+    // Converti in array e ordina
     const arrayMaschili = Object.values(statsMaschili).sort((a, b) =>
       a.categoria.localeCompare(b.categoria)
     );
@@ -194,7 +201,7 @@ const Dashboard = () => {
       a.categoria.localeCompare(b.categoria)
     );
 
-    // Aggiungi riga totale
+    // Calcola totali
     const totaleMaschili = {
       categoria: "TOTALE",
       postiTotali: arrayMaschili.reduce((sum, cat) => sum + cat.postiTotali, 0),

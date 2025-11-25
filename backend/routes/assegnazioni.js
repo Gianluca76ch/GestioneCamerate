@@ -20,4 +20,7 @@ router.post('/', assegnazioniController.createAssegnazione);
 // DELETE - Rimuovi assegnazione (rimuovi alloggiato da camera)
 router.delete('/:id', assegnazioniController.deleteAssegnazione);
 
+// PUT - Modifica assegnazione
+router.put('/:id', assegnazioniController.updateAssegnazione);
+
 module.exports = router;

@@ -35,3 +35,8 @@ export const getOccupazioneCamera = async (idCamera) => {
   const response = await api.get(`/assegnazioni/camera/${idCamera}`);
   return response.data;
 };
+
+export const updateAssegnazione = async (id, data) => {
+  const response = await api.put(`/assegnazioni/${id}`, data);
+  return response.data;
+};

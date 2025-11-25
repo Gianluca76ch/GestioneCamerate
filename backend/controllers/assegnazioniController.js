@@ -310,6 +310,46 @@ exports.createAssegnazione = async (req, res) => {
   }
 };
 
+// PUT - Modifica assegnazione
+exports.updateAssegnazione = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data_assegnazione, note } = req.body;
+
+    const assegnazione = await Assegnazione.findByPk(id);
+
+    if (!assegnazione) {
+      return res.status(404).json({
+        success: false,
+        error: 'Assegnazione non trovata'
+      });
+    }
+
+    await assegnazione.update({
+      data_assegnazione: data_assegnazione || assegnazione.data_assegnazione,
+      note: note !== undefined ? note : assegnazione.note
+    });
+
+    const assegnazioneAggiornata = await Assegnazione.findByPk(id, {
+      include: ['alloggiato', 'camera']
+    });
+
+    res.json({
+      success: true,
+      message: 'Assegnazione modificata con successo',
+      data: assegnazioneAggiornata
+    });
+
+  } catch (error) {
+    console.error('Errore updateAssegnazione:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Errore nella modifica dell\'assegnazione',
+      message: error.message
+    });
+  }
+};
+
 // DELETE - Rimuovi assegnazione (rimuovi alloggiato da camera)
 exports.deleteAssegnazione = async (req, res) => {
   try {

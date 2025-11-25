@@ -151,7 +151,7 @@ const Layout = ({ children }) => {
             </Typography>
           </>
         )}
-        <IconButton
+        {/* <IconButton
           onClick={logout}
           size="small"
           color="error"
@@ -166,7 +166,7 @@ const Layout = ({ children }) => {
               Esci
             </Typography>
           )}
-        </IconButton>
+        </IconButton> */}
       </Box>
     </Box>
   );

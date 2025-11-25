@@ -27,6 +27,9 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
+  Warning as WarningIcon,
+    Search as SearchIcon,
+  Clear as ClearIcon
 } from "@mui/icons-material";
 import {
   getAllAlloggiati,
@@ -35,6 +38,7 @@ import {
   deleteAlloggiato,
 } from "../services/alloggiatiService";
 import { getAllGradi } from "../services/gradiService";
+import { getAllCategorie } from "../services/categorieService";
 
 const GestioneAlloggiati = () => {
   const [alloggiati, setAlloggiati] = useState([]);
@@ -57,27 +61,79 @@ const GestioneAlloggiati = () => {
     tipo_ferma: "FV",
   });
 
+  const [filtri, setFiltri] = useState({
+    cognome: "",
+    categoria: "",
+    tipoFerma: "",
+  });
+
+  const [categorie, setCategorie] = useState([]);
+
+  const [alloggiatiFilterati, setAlloggiatiFilterati] = useState([]);
+
+  useEffect(() => {
+    applicaFiltri();
+  }, [alloggiati, filtri]);
+
+  const applicaFiltri = () => {
+    let risultato = [...alloggiati];
+
+    if (filtri.cognome) {
+      risultato = risultato.filter((a) =>
+        a.cognome.toLowerCase().includes(filtri.cognome.toLowerCase())
+      );
+    }
+    if (filtri.categoria) {
+      risultato = risultato.filter(
+        (a) => a.grado?.categoria?.id === parseInt(filtri.categoria)
+      );
+    }
+    if (filtri.tipoFerma) {
+      risultato = risultato.filter((a) => a.tipo_ferma === filtri.tipoFerma);
+    }
+
+    setAlloggiatiFilterati(risultato);
+  };
+
+  const handleFiltroChange = (e) => {
+    const { name, value } = e.target;
+    setFiltri((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const pulisciFiltri = () => {
+    setFiltri({
+      cognome: "",
+      categoria: "",
+      tipoFerma: "",
+    });
+  };
+
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [alloggiatiRes, gradiRes] = await Promise.all([
-        getAllAlloggiati(),
-        getAllGradi(),
-      ]);
-      setAlloggiati(alloggiatiRes.data || []);
-      setGradi(gradiRes.data || []);
-    } catch (err) {
-      console.error("Errore caricamento dati:", err);
-      setError("Errore nel caricamento dei dati");
-    } finally {
-      setLoading(false);
-    }
-  };
+const loadData = async () => {
+  try {
+    setLoading(true);
+    const [alloggiatiRes, gradiRes, categorieRes] = await Promise.all([
+      getAllAlloggiati(),
+      getAllGradi(),
+      getAllCategorie()
+    ]);
+
+    setAlloggiati(alloggiatiRes.data || []);
+    setGradi(gradiRes.data || []);
+    setCategorie(categorieRes.data || []);
+  } catch (err) {
+    console.error("Errore caricamento dati:", err);
+    setError("Errore nel caricamento dei dati");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleOpenDialog = (alloggiato = null) => {
     if (alloggiato) {
@@ -189,6 +245,21 @@ const GestioneAlloggiati = () => {
     );
   }
 
+  const verificaCambioStato = (matricola, tipoFerma) => {
+    if (tipoFerma !== "FV") return false; // Solo per FV
+
+    const primiDueNumeri = parseInt(matricola.substring(0, 2));
+
+    // Se > 50, è del secolo scorso (es. 95 = 1995), ignora
+    if (primiDueNumeri > 50) return false;
+
+    const annoCorrente = new Date().getFullYear();
+    const annoIngresso = 2000 + primiDueNumeri;
+    const annoPassaggioSPE = annoIngresso + 4;
+
+    return annoPassaggioSPE === annoCorrente;
+  };
+
   return (
     <Box>
       <Box
@@ -227,6 +298,72 @@ const GestioneAlloggiati = () => {
         </Alert>
       )}
 
+      {/* Filtri */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          <SearchIcon sx={{ verticalAlign: "middle", mr: 1 }} />
+          Filtri di Ricerca
+        </Typography>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Cognome"
+              name="cognome"
+              value={filtri.cognome}
+              onChange={handleFiltroChange}
+            />
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              fullWidth
+              size="small"
+              select
+              label="Categoria"
+              name="categoria"
+              value={filtri.categoria}
+              onChange={handleFiltroChange}
+            >
+              <MenuItem value="">Tutte</MenuItem>
+              {categorie.map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>
+                  {cat.descrizione}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              fullWidth
+              size="small"
+              select
+              label="Tipo Ferma"
+              name="tipoFerma"
+              value={filtri.tipoFerma}
+              onChange={handleFiltroChange}
+            >
+              <MenuItem value="">Tutti</MenuItem>
+              <MenuItem value="FV">Ferma Volontaria</MenuItem>
+              <MenuItem value="SPE">SPE</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<ClearIcon />}
+              onClick={pulisciFiltri}
+            >
+              Pulisci
+            </Button>
+          </Grid>
+        </Grid>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          {alloggiatiFilterati.length} alloggiati trovati
+        </Typography>
+      </Paper>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -247,7 +384,10 @@ const GestioneAlloggiati = () => {
                 <strong>Categoria</strong>
               </TableCell>
               <TableCell>
-                <strong>Tipo Ferma</strong>
+                <strong>Status</strong>
+              </TableCell>
+              <TableCell>
+                <strong></strong>
               </TableCell>
               <TableCell>
                 <strong>Telefono</strong>
@@ -264,7 +404,7 @@ const GestioneAlloggiati = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {alloggiati.length === 0 ? (
+            {alloggiatiFilterati.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} align="center">
                   <Typography variant="body2" color="textSecondary">
@@ -273,16 +413,29 @@ const GestioneAlloggiati = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              alloggiati.map((alloggiato) => (
+              alloggiatiFilterati.map((alloggiato) => (
                 <TableRow key={alloggiato.matricola} hover>
                   <TableCell>{alloggiato.matricola}</TableCell>
                   <TableCell>{alloggiato.cognome}</TableCell>
                   <TableCell>{alloggiato.nome}</TableCell>
-                  <TableCell>{alloggiato.grado?.descrizione}</TableCell>
+                  <TableCell>{alloggiato.grado?.codice}</TableCell>
                   <TableCell>
                     {alloggiato.grado?.categoria?.descrizione}
                   </TableCell>
                   <TableCell>{alloggiato.tipo_ferma}</TableCell>
+                  <TableCell>
+                    {verificaCambioStato(
+                      alloggiato.matricola,
+                      alloggiato.tipo_ferma
+                    ) && (
+                      <Chip
+                        label="SPE"
+                        color="warning"
+                        size="small"
+                        icon={<WarningIcon />}
+                      />
+                    )}
+                  </TableCell>
                   <TableCell>{alloggiato.telefono || "-"}</TableCell>
                   <TableCell>{alloggiato.codice_reparto || "-"}</TableCell>
                   <TableCell>

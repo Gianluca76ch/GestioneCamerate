@@ -55,14 +55,14 @@ const DialogEliminazioneCamera = ({
     }
 
     // Verifica che la data non sia futura
-    const oggi = new Date();
-    oggi.setHours(0, 0, 0, 0);
-    const dataSelezionata = new Date(dataUscita);
+    // const oggi = new Date();
+    // oggi.setHours(0, 0, 0, 0);
+    // const dataSelezionata = new Date(dataUscita);
     
-    if (dataSelezionata > oggi) {
-      setError('La data di uscita non può essere futura');
-      return;
-    }
+    // if (dataSelezionata > oggi) {
+    //   setError('La data di uscita non può essere futura');
+    //   return;
+    // }
 
     onConfirm({ dataUscita, note });
     onClose();
